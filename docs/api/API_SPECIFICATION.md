@@ -53,14 +53,20 @@
 - `GET /api/v1/recon/{id}/technologies` — List of detected technologies, versions, confidence scores, and evidence.
 - `POST /api/v1/recon/{id}/cancel` — Cancel an in-flight reconnaissance job.
 
-### 2.4 Vulnerability Findings & Evidence
+### 2.4 Passive Security Analysis Engine (Phase 2B)
+- `GET /api/v1/passive/analyzers` — Lists registered passive security analyzers and capabilities.
+- `GET /api/v1/passive/rules` — Lists all supported passive rule identifiers across all analyzers.
+- `POST /api/v1/passive/analyze` — Run passive security analysis over observed HTTP request/response transaction.
+- `GET /api/v1/passive/{scan_id}/findings` — Retrieve paginated passive findings for a specific scan session.
+
+### 2.5 Vulnerability Findings & Evidence
 - `GET /api/v1/findings` — Retrieve paginated findings.
   - **Query Parameters:** `scan_id`, `severity`, `status`, `page`, `page_size`.
   - **Response:** `200 OK` with `PaginatedResponse[FindingResponse]`.
 - `GET /api/v1/findings/{id}` — Get single finding with complete redacted HTTP request/response evidence and SHA-256 seal.
 - `POST /api/v1/findings/{id}/retest` (V1) — Trigger single-finding verification retest against patched endpoint.
 
-### 2.4 Report Generation
+### 2.6 Report Generation
 - `GET /api/v1/reports/{scan_id}?format=sarif` — Download OASIS SARIF v2.1.0 document.
 - `GET /api/v1/reports/{scan_id}?format=pdf` — Download branded executive PDF report.
 - `GET /api/v1/reports/{scan_id}?format=json` — Raw scan telemetry dump.

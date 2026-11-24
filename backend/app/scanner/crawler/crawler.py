@@ -2,6 +2,7 @@ import asyncio
 import time
 from typing import Set, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
+from uuid import uuid4
 
 from backend.app.core.logging import logger
 from backend.app.scanner.crawler.client import AsyncHTTPClient
@@ -14,6 +15,8 @@ from shared.schemas.discovery import (
     DiscoveryMethod,
     FormMetadataSchema
 )
+from backend.app.scanner.passive.engine import PassiveAnalysisEngine
+from backend.app.scanner.passive.models import HTTPResponseContext, PassiveFinding
 
 
 class AsyncCrawler:
@@ -27,7 +30,8 @@ class AsyncCrawler:
         max_depth: int = 3,
         max_urls: int = 500,
         concurrency: int = 5,
-        scan_id = None
+        scan_id = None,
+        enable_passive_analysis: bool = True
     ):
         self.target_base_url = target_base_url
         self.client = client
@@ -35,7 +39,11 @@ class AsyncCrawler:
         self.max_depth = max_depth
         self.max_urls = max_urls
         self.concurrency = concurrency
-        self.scan_id = scan_id
+        self.scan_id = scan_id or uuid4()
+        self.enable_passive_analysis = enable_passive_analysis
+
+        self.passive_engine = PassiveAnalysisEngine() if enable_passive_analysis else None
+        self.passive_findings: List[PassiveFinding] = []
 
         self.visited_urls: Set[str] = set()
         self.discovered_endpoints: Dict[str, DiscoveredEndpointCreate] = {}
@@ -83,8 +91,11 @@ class AsyncCrawler:
                     if len(self.discovered_endpoints) >= self.max_urls:
                         break
 
-                    async with semaphore:
-                        await self._process_url(url, depth, source, method)
+                    try:
+                        async with semaphore:
+                            await self._process_url(url, depth, source, method)
+                    except Exception as err:
+                        logger.error(f"[Crawler] Error processing URL {url}: {str(err)}")
                 finally:
                     self.crawl_queue.task_done()
 
@@ -131,6 +142,28 @@ class AsyncCrawler:
             query_params=query_params or None
         )
         self.discovered_endpoints[url] = endpoint_record
+
+        # Passive Security Analysis on observed response
+        if resp and self.passive_engine:
+            raw_hdrs: List[Tuple[str, str]] = []
+            if hasattr(resp.headers, "raw"):
+                for k, v in resp.headers.raw:
+                    k_str = k.decode("latin1", errors="replace") if isinstance(k, bytes) else str(k)
+                    v_str = v.decode("latin1", errors="replace") if isinstance(v, bytes) else str(v)
+                    raw_hdrs.append((k_str, v_str))
+            else:
+                raw_hdrs = [(k, v) for k, v in resp.headers.items()]
+
+            ctx = HTTPResponseContext(
+                url=url,
+                status_code=resp.status_code,
+                headers=dict(resp.headers),
+                raw_headers=raw_hdrs,
+                body=resp.text if resp.text else None,
+                method="GET"
+            )
+            findings = self.passive_engine.analyze_response(ctx)
+            self.passive_findings.extend(findings)
 
         # If page is HTML and we haven't reached max depth, extract links & forms
         if resp and resp.status_code == 200 and resp.text and category == EndpointCategory.PAGE:

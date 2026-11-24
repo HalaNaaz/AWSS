@@ -104,3 +104,5 @@ class ReconSummaryResponse(BaseModel):
     execution_time_seconds: float
     categories_breakdown: Dict[str, int] = {}
     technologies: List[TechnologyObservationSchema] = []
+    findings_count: int = 0
+    findings: List[Any] = []

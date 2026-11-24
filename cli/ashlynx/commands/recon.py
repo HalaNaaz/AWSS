@@ -79,7 +79,8 @@ def run_recon(
     console.print(f"\n[bold green]✓[/bold green] [bold white]Reconnaissance Completed[/bold white] in [cyan]{summary.execution_time_seconds}s[/cyan]")
     console.print(f"    Endpoints Discovered: [bold cyan]{summary.endpoints_discovered}[/bold cyan]")
     console.print(f"    Forms Discovered:     [bold yellow]{summary.forms_discovered}[/bold yellow]")
-    console.print(f"    Technologies Found:   [bold magenta]{summary.technologies_detected}[/bold magenta]\n")
+    console.print(f"    Technologies Found:   [bold magenta]{summary.technologies_detected}[/bold magenta]")
+    console.print(f"    Passive Findings:     [bold red]{summary.findings_count}[/bold red]\n")
 
     # Technology Table
     if summary.technologies:
@@ -108,3 +109,21 @@ def run_recon(
         for cat, count in summary.categories_breakdown.items():
             cat_table.add_row(cat, str(count))
         console.print(cat_table)
+
+    # Passive Findings Table
+    if summary.findings:
+        find_table = Table(title="Passive Security Analysis Findings", border_style="bright_red")
+        find_table.add_column("Severity", style="bold")
+        find_table.add_column("Title", style="white")
+        find_table.add_column("CWE", style="yellow")
+        find_table.add_column("URL", style="dim")
+        for f in summary.findings:
+            sev_color = "red" if f.severity in ("CRITICAL", "HIGH") else "yellow" if f.severity == "MEDIUM" else "cyan"
+            find_table.add_row(
+                f"[{sev_color}]{f.severity}[/{sev_color}]",
+                f.title,
+                f.cwe_id,
+                f.endpoint.url if hasattr(f, "endpoint") else "-"
+            )
+        console.print("\n")
+        console.print(find_table)

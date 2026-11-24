@@ -7,13 +7,18 @@ export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFORMATIONAL";
 
 export type FindingStatus =
   | "DETECTED"
+  | "CANDIDATE"
   | "SUSPECTED"
   | "VERIFICATION_PENDING"
   | "VERIFIED"
   | "UNVERIFIED"
+  | "NOT_VULNERABLE"
+  | "INCONCLUSIVE"
+  | "NOT_TESTED"
   | "FALSE_POSITIVE"
   | "RESOLVED"
-  | "ACCEPTED_RISK";
+  | "ACCEPTED_RISK"
+  | "ERROR";
 
 export type ScanProfile =
   | "PASSIVE_DISCOVERY"
@@ -187,6 +192,8 @@ export interface ReconSummary {
   execution_time_seconds: number;
   categories_breakdown: Record<string, number>;
   technologies: TechnologyObservation[];
+  findings_count?: number;
+  findings?: Finding[];
 }
 
 export interface APIResponse<T> {

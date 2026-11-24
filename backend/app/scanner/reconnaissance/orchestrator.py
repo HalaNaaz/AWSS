@@ -8,6 +8,8 @@ from backend.app.scanner.crawler.client import AsyncHTTPClient
 from backend.app.scanner.crawler.crawler import AsyncCrawler
 from backend.app.scanner.crawler.normalizer import URLNormalizer
 from backend.app.scanner.fingerprinting.technologies import TechnologyFingerprinter
+from backend.app.scanner.passive.engine import PassiveAnalysisEngine
+from backend.app.scanner.passive.models import HTTPResponseContext, PassiveFinding
 from backend.app.scanner.reconnaissance.js_analyzer import JavaScriptEndpointExtractor
 from backend.app.scanner.reconnaissance.robots_sitemap import RobotsSitemapDiscovery
 from backend.app.scanner.scope.scope_gate import ScopeGate
@@ -69,13 +71,15 @@ class ReconOrchestrator:
 
         technologies: List[TechnologyObservationSchema] = []
         seed_urls: List[Tuple[str, DiscoveryMethod]] = []
+        passive_engine = PassiveAnalysisEngine()
+        all_passive_findings: List[PassiveFinding] = []
 
         async with AsyncHTTPClient(
             scope_gate=self.scope_gate,
             rate_limit_rps=self.rate_limit_rps,
             max_redirects=5
         ) as client:
-            # Step 1: Initial Baseline Request & Technology Fingerprint
+            # Step 1: Initial Baseline Request & Technology Fingerprint & Passive Checks
             root_resp, err = await client.get(self.target_url)
             if root_resp:
                 techs = TechnologyFingerprinter.fingerprint(
@@ -84,6 +88,26 @@ class ReconOrchestrator:
                     html_body=root_resp.text
                 )
                 technologies.extend(techs)
+
+                # Passive security analysis on root page
+                raw_hdrs = []
+                if hasattr(root_resp.headers, "raw"):
+                    for k, v in root_resp.headers.raw:
+                        k_str = k.decode("latin1", errors="replace") if isinstance(k, bytes) else str(k)
+                        v_str = v.decode("latin1", errors="replace") if isinstance(v, bytes) else str(v)
+                        raw_hdrs.append((k_str, v_str))
+                else:
+                    raw_hdrs = [(k, v) for k, v in root_resp.headers.items()]
+
+                root_ctx = HTTPResponseContext(
+                    url=self.target_url,
+                    status_code=root_resp.status_code,
+                    headers=dict(root_resp.headers),
+                    raw_headers=raw_hdrs,
+                    body=root_resp.text if root_resp.text else None,
+                    method="GET"
+                )
+                all_passive_findings.extend(passive_engine.analyze_response(root_ctx))
 
             # Step 2: Robots.txt & Sitemap Discovery
             if not self._is_cancelled:
@@ -144,7 +168,18 @@ class ReconOrchestrator:
                                         )
                                     )
 
-        # Step 5: Compute Summary Metrics
+        # Step 5: Consolidate Passive Security Findings
+        if self.crawler and self.crawler.passive_findings:
+            all_passive_findings.extend(self.crawler.passive_findings)
+
+        unique_findings_map = {}
+        for pf in all_passive_findings:
+            key = (pf.rule_id, pf.url, pf.parameter)
+            if key not in unique_findings_map:
+                unique_findings_map[key] = pf.to_finding_response(self.scan_id)
+        final_findings = list(unique_findings_map.values())
+
+        # Step 6: Compute Summary Metrics
         elapsed_seconds = round(time.perf_counter() - start_time, 2)
         categories_breakdown: Dict[str, int] = {}
         for ep in endpoints:
@@ -162,7 +197,9 @@ class ReconOrchestrator:
             crawl_depth_reached=self.max_depth,
             execution_time_seconds=elapsed_seconds,
             categories_breakdown=categories_breakdown,
-            technologies=technologies
+            technologies=technologies,
+            findings_count=len(final_findings),
+            findings=final_findings
         )
-        logger.info(f"[ReconOrchestrator] Recon completed in {elapsed_seconds}s. Discovered: {len(endpoints)} endpoints, {len(forms)} forms.")
+        logger.info(f"[ReconOrchestrator] Recon completed in {elapsed_seconds}s. Discovered: {len(endpoints)} endpoints, {len(forms)} forms, {len(final_findings)} passive findings.")
         return summary
