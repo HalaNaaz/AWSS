@@ -16,14 +16,16 @@ class ScopeGate:
     - Time-of-Check to Time-of-Use (TOCTOU) DNS rebinding attacks via socket IP pinning.
     - Scanner self-weaponization against internal infrastructure and cloud metadata.
     - Accidental or malicious out-of-scope fuzzing.
+    - Open redirect SSRF pivoting.
+    - IPv4-mapped IPv6 evasion attacks.
     """
 
-    # Prohibited IP networks (RFC 1918, Loopback, Cloud Metadata, Link-Local)
+    # Prohibited IP networks (RFC 1918, Loopback, Cloud Metadata, Link-Local, Reserved)
     PROHIBITED_NETWORKS = [
         ipaddress.ip_network("0.0.0.0/8"),
         ipaddress.ip_network("10.0.0.0/8"),
         ipaddress.ip_network("127.0.0.0/8"),
-        ipaddress.ip_network("169.254.0.0/16"),       # Cloud metadata & APIPA
+        ipaddress.ip_network("169.254.0.0/16"),       # Cloud metadata & APIPA (RFC 3927)
         ipaddress.ip_network("172.16.0.0/12"),
         ipaddress.ip_network("192.168.0.0/16"),
         ipaddress.ip_network("224.0.0.0/4"),         # Multicast
@@ -41,7 +43,7 @@ class ScopeGate:
     ):
         self.target_base_url = target_base_url
         self.parsed_target = urlparse(target_base_url)
-        self.scope_rules = scope_rules or []
+        self.scope_rules = list(scope_rules or [])
         self.allow_private_ips = allow_private_ips
 
         # If no explicit include rules, target base domain is the implicit scope root
@@ -56,11 +58,39 @@ class ScopeGate:
 
         try:
             ip_obj = ipaddress.ip_address(ip_str)
+
+            # Check standard Python ipaddress properties (covers loopback, private, link-local, multicast, reserved)
+            if (
+                ip_obj.is_loopback
+                or ip_obj.is_private
+                or ip_obj.is_link_local
+                or ip_obj.is_multicast
+                or ip_obj.is_reserved
+                or ip_obj.is_unspecified
+            ):
+                return True
+
+            # Check for IPv4-mapped IPv6 address (e.g. ::ffff:127.0.0.1 or ::ffff:169.254.169.254)
+            if getattr(ip_obj, "ipv4_mapped", None):
+                v4_obj = ip_obj.ipv4_mapped
+                if (
+                    v4_obj.is_loopback
+                    or v4_obj.is_private
+                    or v4_obj.is_link_local
+                    or v4_obj.is_multicast
+                    or v4_obj.is_reserved
+                    or v4_obj.is_unspecified
+                ):
+                    return True
+
+            # Match against explicit prohibited subnets
             for net in self.PROHIBITED_NETWORKS:
                 if ip_obj in net:
                     return True
+
             return False
         except ValueError:
+            # Unparseable IP is rejected by default
             return True
 
     def resolve_and_pin(self, hostname: str) -> str:
@@ -127,3 +157,11 @@ class ScopeGate:
         hostname = parsed.hostname or parsed.netloc.split(":")[0]
         pinned_ip = self.resolve_and_pin(hostname)
         return pinned_ip
+
+    def validate_redirect(self, redirect_url: str) -> str:
+        """Validates an HTTP redirect target URL against scope rules and SSRF protections.
+        
+        Prevents targets from pivoting the scanner to internal services via HTTP 301/302 redirects.
+        Returns pinned IP address if valid; raises ScopeViolationError or SSRFValidationError if unsafe.
+        """
+        return self.pre_flight_check(redirect_url)
