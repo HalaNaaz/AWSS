@@ -46,7 +46,14 @@
 - `GET /api/v1/scans/{id}` — Retrieve scan status, crawled URL counter, and finding counts.
 - `POST /api/v1/scans/{id}/cancel` — Cancel an in-flight or queued scan job.
 
-### 2.3 Vulnerability Findings & Evidence
+### 2.3 Reconnaissance & Attack Surface Discovery (Phase 2A)
+- `POST /api/v1/recon/start` — Launch an authorized reconnaissance session.
+- `GET /api/v1/recon/{id}/status` — Retrieve execution summary, crawl depth, and status.
+- `GET /api/v1/recon/{id}/endpoints` — Paginated list of discovered endpoints with categories and query parameter lists.
+- `GET /api/v1/recon/{id}/technologies` — List of detected technologies, versions, confidence scores, and evidence.
+- `POST /api/v1/recon/{id}/cancel` — Cancel an in-flight reconnaissance job.
+
+### 2.4 Vulnerability Findings & Evidence
 - `GET /api/v1/findings` — Retrieve paginated findings.
   - **Query Parameters:** `scan_id`, `severity`, `status`, `page`, `page_size`.
   - **Response:** `200 OK` with `PaginatedResponse[FindingResponse]`.

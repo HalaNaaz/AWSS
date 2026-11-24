@@ -1,0 +1,168 @@
+import asyncio
+import time
+from typing import Optional, List, Dict, Tuple
+from uuid import UUID, uuid4
+
+from backend.app.core.logging import logger
+from backend.app.scanner.crawler.client import AsyncHTTPClient
+from backend.app.scanner.crawler.crawler import AsyncCrawler
+from backend.app.scanner.crawler.normalizer import URLNormalizer
+from backend.app.scanner.fingerprinting.technologies import TechnologyFingerprinter
+from backend.app.scanner.reconnaissance.js_analyzer import JavaScriptEndpointExtractor
+from backend.app.scanner.reconnaissance.robots_sitemap import RobotsSitemapDiscovery
+from backend.app.scanner.scope.scope_gate import ScopeGate
+from shared.schemas.common import ScopeRuleType
+from shared.schemas.discovery import (
+    DiscoveredEndpointCreate,
+    FormMetadataSchema,
+    TechnologyObservationSchema,
+    ReconSummaryResponse,
+    DiscoveryMethod,
+    EndpointCategory
+)
+
+
+class ReconOrchestrator:
+    """Master Orchestrator coordinating discovery, crawling, robots/sitemap parsing, and JS extraction."""
+
+    def __init__(
+        self,
+        target_url: str,
+        scan_id: Optional[UUID] = None,
+        scope_rules: Optional[List[Tuple[ScopeRuleType, str]]] = None,
+        max_depth: int = 3,
+        max_urls: int = 500,
+        concurrency: int = 5,
+        rate_limit_rps: float = 10.0,
+        analyze_javascript: bool = True,
+        respect_robots: bool = True
+    ):
+        self.target_url = target_url
+        self.scan_id = scan_id or uuid4()
+        self.scope_rules = scope_rules or []
+        self.max_depth = max_depth
+        self.max_urls = max_urls
+        self.concurrency = concurrency
+        self.rate_limit_rps = rate_limit_rps
+        self.analyze_javascript = analyze_javascript
+        self.respect_robots = respect_robots
+
+        # Initialize ScopeGate
+        self.scope_gate = ScopeGate(
+            target_base_url=self.target_url,
+            scope_rules=self.scope_rules,
+            allow_private_ips=False
+        )
+        self.crawler: Optional[AsyncCrawler] = None
+        self._is_cancelled = False
+
+    def cancel(self):
+        """Cancels running reconnaissance."""
+        self._is_cancelled = True
+        if self.crawler:
+            self.crawler.cancel()
+
+    async def run(self) -> ReconSummaryResponse:
+        """Executes full reconnaissance pipeline."""
+        start_time = time.perf_counter()
+        logger.info(f"[ReconOrchestrator] Starting reconnaissance for target: {self.target_url} [Scan: {self.scan_id}]")
+
+        technologies: List[TechnologyObservationSchema] = []
+        seed_urls: List[Tuple[str, DiscoveryMethod]] = []
+
+        async with AsyncHTTPClient(
+            scope_gate=self.scope_gate,
+            rate_limit_rps=self.rate_limit_rps,
+            max_redirects=5
+        ) as client:
+            # Step 1: Initial Baseline Request & Technology Fingerprint
+            root_resp, err = await client.get(self.target_url)
+            if root_resp:
+                techs = TechnologyFingerprinter.fingerprint(
+                    scan_id=self.scan_id,
+                    headers=dict(root_resp.headers),
+                    html_body=root_resp.text
+                )
+                technologies.extend(techs)
+
+            # Step 2: Robots.txt & Sitemap Discovery
+            if not self._is_cancelled:
+                robots_discovery = RobotsSitemapDiscovery(
+                    base_url=self.target_url,
+                    client=client,
+                    scope_gate=self.scope_gate
+                )
+                robots_urls, sitemap_links = await robots_discovery.discover_robots()
+                for ru in robots_urls:
+                    seed_urls.append((ru, DiscoveryMethod.ROBOTS_TXT))
+
+                # If sitemaps discovered, parse them
+                for sm_link in sitemap_links:
+                    if self._is_cancelled or len(seed_urls) >= 100:
+                        break
+                    sm_urls = await robots_discovery.discover_sitemap(sm_link)
+                    for su in sm_urls:
+                        seed_urls.append((su, DiscoveryMethod.SITEMAP_XML))
+
+            # Step 3: Run Bounded HTTP Crawler
+            self.crawler = AsyncCrawler(
+                target_base_url=self.target_url,
+                client=client,
+                scope_gate=self.scope_gate,
+                max_depth=self.max_depth,
+                max_urls=self.max_urls,
+                concurrency=self.concurrency,
+                scan_id=self.scan_id
+            )
+            endpoints, forms, script_urls = await self.crawler.crawl(seed_urls=seed_urls)
+
+            # Step 4: Passive JavaScript Analysis
+            if self.analyze_javascript and not self._is_cancelled:
+                for js_url in list(script_urls)[:20]:  # Cap at top 20 scripts
+                    if self._is_cancelled or len(endpoints) >= self.max_urls:
+                        break
+                    if self.scope_gate.validate_url_in_scope(js_url):
+                        js_resp, _ = await client.get(js_url)
+                        if js_resp and js_resp.status_code == 200 and js_resp.text:
+                            candidate_apis = JavaScriptEndpointExtractor.extract_endpoints(
+                                js_content=js_resp.text,
+                                base_url=self.target_url,
+                                scope_gate=self.scope_gate
+                            )
+                            for cand in candidate_apis:
+                                if cand not in [e.url for e in endpoints]:
+                                    endpoints.append(
+                                        DiscoveredEndpointCreate(
+                                            scan_id=self.scan_id,
+                                            url=cand,
+                                            normalized_url=cand,
+                                            method="GET",
+                                            source_url=js_url,
+                                            discovery_method=DiscoveryMethod.JAVASCRIPT_AST,
+                                            crawl_depth=1,
+                                            endpoint_category=EndpointCategory.API
+                                        )
+                                    )
+
+        # Step 5: Compute Summary Metrics
+        elapsed_seconds = round(time.perf_counter() - start_time, 2)
+        categories_breakdown: Dict[str, int] = {}
+        for ep in endpoints:
+            cat_name = ep.endpoint_category.value
+            categories_breakdown[cat_name] = categories_breakdown.get(cat_name, 0) + 1
+
+        summary = ReconSummaryResponse(
+            scan_id=self.scan_id,
+            target_url=self.target_url,
+            status="CANCELLED" if self._is_cancelled else "COMPLETED",
+            urls_crawled=len(endpoints),
+            endpoints_discovered=len(endpoints),
+            forms_discovered=len(forms),
+            technologies_detected=len(technologies),
+            crawl_depth_reached=self.max_depth,
+            execution_time_seconds=elapsed_seconds,
+            categories_breakdown=categories_breakdown,
+            technologies=technologies
+        )
+        logger.info(f"[ReconOrchestrator] Recon completed in {elapsed_seconds}s. Discovered: {len(endpoints)} endpoints, {len(forms)} forms.")
+        return summary

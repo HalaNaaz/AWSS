@@ -36,6 +36,25 @@ export type ScanStatus =
 
 export type ScopeRuleType = "INCLUDE" | "EXCLUDE";
 
+export type EndpointCategory =
+  | "PAGE"
+  | "API"
+  | "JAVASCRIPT"
+  | "CSS"
+  | "IMAGE"
+  | "DOCUMENT"
+  | "FORM"
+  | "REDIRECT"
+  | "OTHER";
+
+export type DiscoveryMethod =
+  | "CRAWLER"
+  | "ROBOTS_TXT"
+  | "SITEMAP_XML"
+  | "JAVASCRIPT_AST"
+  | "FORM_ACTION"
+  | "HEADER_METADATA";
+
 export interface ScopeRule {
   id: string;
   target_id: string;
@@ -108,6 +127,66 @@ export interface Finding {
   evidence?: Evidence;
   created_at: string;
   updated_at?: string;
+}
+
+export interface FormField {
+  name: string;
+  field_type: string;
+  default_value?: string;
+  is_required: boolean;
+}
+
+export interface FormMetadata {
+  action: string;
+  method: string;
+  fields: FormField[];
+  enctype?: string;
+  source_url?: string;
+}
+
+export interface TechnologyObservation {
+  id?: string;
+  scan_id: string;
+  technology_name: string;
+  category: string;
+  version?: string;
+  confidence: number;
+  detection_source: string;
+  evidence?: string;
+  created_at?: string;
+}
+
+export interface DiscoveredEndpoint {
+  id: string;
+  scan_id: string;
+  url: string;
+  normalized_url: string;
+  method: string;
+  parameter?: string;
+  status_code?: number;
+  content_type?: string;
+  response_size?: number;
+  response_time_ms?: number;
+  source_url?: string;
+  discovery_method: DiscoveryMethod;
+  crawl_depth: number;
+  endpoint_category: EndpointCategory;
+  query_params?: Record<string, any>;
+  created_at: string;
+}
+
+export interface ReconSummary {
+  scan_id: string;
+  target_url: string;
+  status: string;
+  urls_crawled: number;
+  endpoints_discovered: number;
+  forms_discovered: number;
+  technologies_detected: number;
+  crawl_depth_reached: number;
+  execution_time_seconds: number;
+  categories_breakdown: Record<string, number>;
+  technologies: TechnologyObservation[];
 }
 
 export interface APIResponse<T> {

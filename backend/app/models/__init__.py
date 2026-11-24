@@ -7,6 +7,8 @@ from backend.app.models.entities import (
     ScopeRule,
     ScanJob,
     DiscoveredEndpoint,
+    DiscoveredForm,
+    TechnologyObservation,
     Finding,
     EvidenceRecord,
     AuditLog
@@ -20,6 +22,8 @@ __all__ = [
     "ScopeRule",
     "ScanJob",
     "DiscoveredEndpoint",
+    "DiscoveredForm",
+    "TechnologyObservation",
     "Finding",
     "EvidenceRecord",
     "AuditLog"

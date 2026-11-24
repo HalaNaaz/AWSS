@@ -30,7 +30,8 @@ gantt
 | Release | Focus Area | Key Deliverables | Status |
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | Foundation & Architecture | Monorepo scaffolding, ScopeGate Anti-SSRF, Database models, Shared schemas, Pytest foundation, Documentation suite. | **COMPLETED** |
-| **MVP** | Core DAST & Reporting | Async HTTP crawler, Active SQLi/XSS/SSRF plugins, Two-Phase Verifier, Typer CLI, PDF/SARIF report generator. | Ready for Implementation |
+| **Phase 2A** | Reconnaissance & HTTP Crawler | Bounded Async Crawler, URL Normalizer, Passive Form Extractor, Robots/Sitemap parser, JS AST Route Finder, Technology Fingerprinter, Recon CLI. | **COMPLETED** |
+| **MVP (2B)** | Active Detection & Verification | Active SQLi/XSS/SSRF plugins, Two-Phase Verifier, PDF/SARIF report generator. | Ready for Implementation |
 | **V1** | Rich Web App & APIs | Playwright DOM navigation, Form-based authenticated session replay, OpenAPI/GraphQL fuzzing, Retest engine. | Planned |
 | **V2** | Ecosystem & Intelligence | AI-assisted remediation suggestions, Sandboxed plugin runtime, WebSocket testing. | Planned |
 | **V3** | Enterprise Multi-Tenant | Distributed Kubernetes worker pools, Row-Level Security, Jira/DefectDojo bidirectional sync. | Planned |

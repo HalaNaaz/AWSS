@@ -1,12 +1,13 @@
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from sqlalchemy import (
-    String, Text, Boolean, Float, Integer, ForeignKey, Enum as SQLEnum, Index
+    String, Text, Boolean, Float, Integer, ForeignKey, Enum as SQLEnum, Index, JSON
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from shared.schemas.common import Severity, FindingStatus, ScanProfile, ScanStatus, ScopeRuleType
+from shared.schemas.discovery import EndpointCategory, DiscoveryMethod
 
 
 class Organization(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -87,6 +88,8 @@ class ScanJob(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     target: Mapped["Target"] = relationship("Target", back_populates="scan_jobs")
     endpoints: Mapped[List["DiscoveredEndpoint"]] = relationship("DiscoveredEndpoint", back_populates="scan_job", cascade="all, delete-orphan")
     findings: Mapped[List["Finding"]] = relationship("Finding", back_populates="scan_job", cascade="all, delete-orphan")
+    forms: Mapped[List["DiscoveredForm"]] = relationship("DiscoveredForm", back_populates="scan_job", cascade="all, delete-orphan")
+    technologies: Mapped[List["TechnologyObservation"]] = relationship("TechnologyObservation", back_populates="scan_job", cascade="all, delete-orphan")
 
 
 class DiscoveredEndpoint(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -94,16 +97,62 @@ class DiscoveredEndpoint(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan_jobs.id", ondelete="CASCADE"), nullable=False)
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    normalized_url: Mapped[str] = mapped_column(String(2048), nullable=False, index=True)
     method: Mapped[str] = mapped_column(String(10), default="GET", nullable=False)
     parameter: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status_code: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     content_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    response_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    response_time_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    source_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
+    discovery_method: Mapped[DiscoveryMethod] = mapped_column(SQLEnum(DiscoveryMethod), default=DiscoveryMethod.CRAWLER, nullable=False)
+    crawl_depth: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    endpoint_category: Mapped[EndpointCategory] = mapped_column(SQLEnum(EndpointCategory), default=EndpointCategory.PAGE, nullable=False)
+    query_params: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     scan_job: Mapped["ScanJob"] = relationship("ScanJob", back_populates="endpoints")
     findings: Mapped[List["Finding"]] = relationship("Finding", back_populates="endpoint")
+    forms: Mapped[List["DiscoveredForm"]] = relationship("DiscoveredForm", back_populates="endpoint")
 
     __table_args__ = (
-        Index("idx_endpoints_scan_url", "scan_id", "url"),
+        Index("idx_endpoints_scan_norm_url", "scan_id", "normalized_url"),
+    )
+
+
+class DiscoveredForm(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "discovered_forms"
+
+    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan_jobs.id", ondelete="CASCADE"), nullable=False)
+    endpoint_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("discovered_endpoints.id", ondelete="SET NULL"), nullable=True)
+    action_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    method: Mapped[str] = mapped_column(String(10), default="POST", nullable=False)
+    fields: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    enctype: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    source_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
+
+    scan_job: Mapped["ScanJob"] = relationship("ScanJob", back_populates="forms")
+    endpoint: Mapped[Optional["DiscoveredEndpoint"]] = relationship("DiscoveredEndpoint", back_populates="forms")
+
+    __table_args__ = (
+        Index("idx_forms_scan_action", "scan_id", "action_url"),
+    )
+
+
+class TechnologyObservation(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "technology_observations"
+
+    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan_jobs.id", ondelete="CASCADE"), nullable=False)
+    technology_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.8, nullable=False)
+    detection_source: Mapped[str] = mapped_column(String(50), nullable=False)
+    evidence: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    scan_job: Mapped["ScanJob"] = relationship("ScanJob", back_populates="technologies")
+
+    __table_args__ = (
+        Index("idx_tech_scan_name", "scan_id", "technology_name"),
     )
 
 
