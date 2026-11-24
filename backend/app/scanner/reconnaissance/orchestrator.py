@@ -56,6 +56,8 @@ class ReconOrchestrator:
             allow_private_ips=False
         )
         self.crawler: Optional[AsyncCrawler] = None
+        self.discovered_endpoints: List[DiscoveredEndpointCreate] = []
+        self.discovered_forms: List[FormMetadataSchema] = []
         self._is_cancelled = False
 
     def cancel(self):
@@ -139,6 +141,8 @@ class ReconOrchestrator:
                 scan_id=self.scan_id
             )
             endpoints, forms, script_urls = await self.crawler.crawl(seed_urls=seed_urls)
+            self.discovered_endpoints = endpoints
+            self.discovered_forms = forms
 
             # Step 4: Passive JavaScript Analysis
             if self.analyze_javascript and not self._is_cancelled:

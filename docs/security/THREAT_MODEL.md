@@ -41,3 +41,18 @@ Using the Microsoft STRIDE methodology, we systematically evaluate threat actors
 - **Vector:** Target server dynamically generates endless synthetic URLs (e.g., `/calendar/2026/11/24/next...`).
 - **Impact:** Memory exhaustion, CPU starvation, scanner lockup.
 - **Mitigation:** Mandatory `max_crawl_depth` (default: 3) and `max_urls` limit (default: 500) enforced by crawler engine.
+
+### 2.4 Threat 4: Target Denial-of-Service via Active Fuzzing (Denial of Service)
+- **Vector:** High-concurrency active fuzzing floods application endpoints with probes, overwhelming database or application workers.
+- **Impact:** Degradation or outage of target system.
+- **Mitigation:** Enforced request budgets (`RequestBudgetTracker`), concurrency limits (default: 2-4), rate limits (default: 3-8 RPS), and conservative profile presets (`SAFE_ACTIVE`).
+
+### 2.5 Threat 5: Destructive SQL or State Manipulation (Tampering)
+- **Vector:** Active scanner transmits destructive SQL syntax (`DROP`, `DELETE`, `UPDATE`) or triggers state deletion.
+- **Impact:** Loss of data or state corruption in target application.
+- **Mitigation:** Strictly non-destructive probes (syntax quote tests and boolean mathematical invariant probes like `AND 8943=8943`); absolute prohibition of destructive SQL keywords.
+
+### 2.6 Threat 6: Self-Inflicted SSRF Pivot via Active SSRF Probing (Elevation of Privilege)
+- **Vector:** Active SSRF checks attempt to resolve cloud metadata or internal RFC 1918 subnets.
+- **Impact:** Self-exploitation of scanner host or cloud environment.
+- **Mitigation:** Safe RFC 2606 synthetic domain probes (`scan-probe.invalid`), zero probes against private/metadata IPs, mandatory ScopeGate validation for all outbound sockets.

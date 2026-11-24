@@ -22,6 +22,9 @@ export type FindingStatus =
 
 export type ScanProfile =
   | "PASSIVE_DISCOVERY"
+  | "PASSIVE_ONLY"
+  | "SAFE_ACTIVE"
+  | "STANDARD_ACTIVE"
   | "QUICK_ASSESSMENT"
   | "FULL_ASSESSMENT"
   | "AUTHENTICATED_SCAN"

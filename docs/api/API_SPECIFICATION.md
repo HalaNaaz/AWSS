@@ -73,3 +73,21 @@
 - `GET /api/v1/reports/{scan_id}` — Export and download security assessment report.
   - **Query Parameters:** `format` (`json`, `html`, `markdown`, `sarif`), `download` (boolean). Default format: `json`.
   - **Response:** Report payload with optional `Content-Disposition: attachment; filename="ashlynx_report_{scan_id}.{ext}"` header.
+
+### 2.7 Active Vulnerability Detection Engine (Phase 3)
+- `GET /api/v1/active/analyzers` — Lists registered active vulnerability detection analyzers, categories, and safety compatibility.
+- `GET /api/v1/active/rules` — Lists all supported active detection rule identifiers.
+- `POST /api/v1/active/probe` — Trigger controlled, authorized active vulnerability checks against a specific endpoint.
+  - **Request Body:**
+  ```json
+  {
+    "url": "https://target.local/search?q=test",
+    "method": "GET",
+    "parameters": {"q": "test"},
+    "profile": "SAFE_ACTIVE",
+    "authorized": true,
+    "request_budget": 20
+  }
+  ```
+  - **Response:** `200 OK` with list of detected `FindingResponse` entities.
+  - **Safety Gate:** Rejects unauthorized probes (`authorized: false`) with `403 Forbidden`. Enforces ScopeGate egress checks.

@@ -21,8 +21,10 @@ report_manager = ReportManager()
 
 def run_scan(
     target: str = typer.Argument(..., help="Target URL to assess (e.g., https://example.com)"),
-    profile: str = typer.Option("QUICK_ASSESSMENT", "--profile", "-p", help="Scan profile: PASSIVE_DISCOVERY, QUICK_ASSESSMENT, FULL_ASSESSMENT, SAFE_MODE, API_TARGETED"),
+    profile: str = typer.Option("SAFE_ACTIVE", "--profile", "-p", help="Scan profile: safe-active, standard-active, passive-only, quick-assessment, full-assessment"),
     authorized: bool = typer.Option(False, "--authorized", "-a", help="Explicit confirmation of scanning authorization (Safety Gate)"),
+    modules: Optional[str] = typer.Option(None, "--modules", "-m", help="Comma-separated list of active modules/analyzers to enable"),
+    request_budget: Optional[int] = typer.Option(None, "--request-budget", "-b", help="Maximum active request budget (default derived from profile)"),
     scope_file: Optional[Path] = typer.Option(None, "--scope-file", "-s", help="Path to in-scope pattern rules file"),
     format_out: str = typer.Option("table", "--format", "-f", help="Output format: table, json, html, markdown, sarif"),
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="Target output file path for report export"),
@@ -46,13 +48,16 @@ def run_scan(
         console.print(f"[bold red][!] Invalid target URL:[/bold red] '{target}'. Must start with http:// or https://")
         raise typer.Exit(code=2)
 
-    # Validate profile
+    # Validate and normalize profile
+    normalized_profile = profile.replace("-", "_").upper()
     try:
-        profile_enum = ScanProfile(profile.upper())
+        profile_enum = ScanProfile(normalized_profile)
     except ValueError:
-        valid_profiles = [p.value for p in ScanProfile]
+        valid_profiles = [p.value.lower().replace("_", "-") for p in ScanProfile]
         console.print(f"[bold red][!] Invalid scan profile:[/bold red] '{profile}'. Allowed profiles: {', '.join(valid_profiles)}")
         raise typer.Exit(code=2)
+
+    enabled_modules_set = set(m.strip() for m in modules.split(",")) if modules else None
 
     scan_id = uuid4()
     orchestrator = ScanOrchestrator(
@@ -63,12 +68,18 @@ def run_scan(
         max_urls=max_urls,
         concurrency=concurrency,
         rate_limit_rps=rate_limit,
+        request_budget=request_budget,
+        enabled_modules=enabled_modules_set,
     )
     scan_registry.register_orchestrator(orchestrator)
 
     console.print(f"[bold green][*][/bold green] Initialized Scan [cyan]{scan_id}[/cyan]")
     console.print(f"[bold green][*][/bold green] Target: [cyan]{target}[/cyan]")
     console.print(f"[bold green][*][/bold green] Profile: [yellow]{profile_enum.value}[/yellow]")
+    if orchestrator.request_budget > 0:
+        console.print(f"[bold yellow][*][/bold yellow] Active Detection Engine: [green]ENABLED[/green] (Budget: {orchestrator.request_budget} probes)")
+    else:
+        console.print("[dim][*] Active Detection Engine: DISABLED (Passive Inspection Mode)[/dim]")
     console.print(f"[bold green][*][/bold green] Depth: {orchestrator.max_crawl_depth} | Max URLs: {orchestrator.max_urls} | Concurrency: {orchestrator.concurrency} | Rate Limit: {orchestrator.rate_limit_rps} RPS")
     console.print("[dim]Pre-flight scope validation & anti-SSRF verification initialized...[/dim]")
 

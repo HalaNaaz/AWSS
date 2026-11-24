@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 
 from backend.app.core.logging import logger
 from backend.app.scanner.reconnaissance.orchestrator import ReconOrchestrator
+from backend.app.scanner.crawler.client import AsyncHTTPClient
+from backend.app.scanner.active import ActiveDetectionEngine, ActiveTarget
 from shared.schemas.common import ScanProfile, ScanStatus, ScopeRuleType
 from shared.schemas.discovery import ReconSummaryResponse
 from shared.schemas.finding import FindingResponse
@@ -34,6 +36,8 @@ class ScanOrchestrator:
         respect_robots: bool = True,
         analyze_javascript: bool = True,
         target_id: Optional[UUID] = None,
+        request_budget: Optional[int] = None,
+        enabled_modules: Optional[Set[str]] = None,
     ):
         self.target_url = target_url.strip()
         self.scan_id = scan_id or uuid4()
@@ -42,6 +46,7 @@ class ScanOrchestrator:
         self.scope_rules = scope_rules or []
         self.respect_robots = respect_robots
         self.analyze_javascript = analyze_javascript
+        self.enabled_modules = enabled_modules
 
         # Resolve limits from presets with explicit override precedence
         preset = SCAN_PROFILE_PRESETS.get(profile, SCAN_PROFILE_PRESETS[ScanProfile.QUICK_ASSESSMENT])
@@ -49,6 +54,7 @@ class ScanOrchestrator:
         self.max_urls = max_urls if max_urls is not None else preset["max_urls"]
         self.concurrency = concurrency if concurrency is not None else preset["concurrency"]
         self.rate_limit_rps = rate_limit_rps if rate_limit_rps is not None else preset["rate_limit_rps"]
+        self.request_budget = request_budget if request_budget is not None else preset.get("request_budget", 0)
 
         # Lifecycle tracking
         self.status: ScanStatus = ScanStatus.QUEUED
@@ -59,6 +65,7 @@ class ScanOrchestrator:
         self.error_message: Optional[str] = None
 
         self._recon_orchestrator: Optional[ReconOrchestrator] = None
+        self._active_engine: Optional[ActiveDetectionEngine] = None
         self._recon_summary: Optional[ReconSummaryResponse] = None
         self._report: Optional[UnifiedScanReport] = None
         self._is_cancelled = False
@@ -70,6 +77,8 @@ class ScanOrchestrator:
         self.status = ScanStatus.CANCELLED
         if self._recon_orchestrator:
             self._recon_orchestrator.cancel()
+        if self._active_engine:
+            self._active_engine.cancel()
 
     @property
     def is_cancelled(self) -> bool:
@@ -150,6 +159,59 @@ class ScanOrchestrator:
 
             recon_summary = await self._recon_orchestrator.run()
             self._recon_summary = recon_summary
+
+            # Check if active vulnerability scanning is enabled for this profile
+            preset = SCAN_PROFILE_PRESETS.get(self.profile, {})
+            is_active_profile = preset.get("active_enabled", False) or self.profile in (
+                ScanProfile.SAFE_ACTIVE,
+                ScanProfile.STANDARD_ACTIVE,
+                ScanProfile.FULL_ASSESSMENT,
+                ScanProfile.API_TARGETED,
+            )
+
+            if is_active_profile and not self._is_cancelled and recon_summary.status != "CANCELLED":
+                logger.info(f"[ScanOrchestrator] Initiating active vulnerability detection phase for scan {self.scan_id}")
+                targets: List[ActiveTarget] = [ActiveTarget(url=self.target_url, method="GET")]
+                seen_urls = {self.target_url}
+
+                for ep in getattr(self._recon_orchestrator, "discovered_endpoints", []):
+                    if ep.url not in seen_urls:
+                        seen_urls.add(ep.url)
+                        targets.append(ActiveDetectionEngine.endpoint_to_active_target(ep))
+
+                self._active_engine = ActiveDetectionEngine(
+                    request_budget=self.request_budget or 60,
+                    concurrency=self.concurrency,
+                    timeout_seconds=15.0,
+                )
+
+                async with AsyncHTTPClient(
+                    scope_gate=self._recon_orchestrator.scope_gate,
+                    rate_limit_rps=self.rate_limit_rps,
+                ) as active_client:
+                    active_findings = await self._active_engine.run(
+                        targets=targets,
+                        client=active_client,
+                        scan_id=self.scan_id,
+                        profile=self.profile,
+                        enabled_modules=self.enabled_modules,
+                    )
+
+                # Merge active findings with passive findings
+                converted_active = [af.to_finding_response(self.scan_id) for af in active_findings]
+                combined = list(recon_summary.findings or []) + converted_active
+
+                # Deduplicate by (rule_id, url, parameter)
+                unique_findings_map = {}
+                for f in combined:
+                    param = f.endpoint.parameter if f.endpoint else None
+                    url = f.endpoint.url if f.endpoint else ""
+                    key = (f.title, url, param)
+                    if key not in unique_findings_map:
+                        unique_findings_map[key] = f
+
+                recon_summary.findings = list(unique_findings_map.values())
+                recon_summary.findings_count = len(recon_summary.findings)
 
             self.duration_seconds = round(time.perf_counter() - start_time, 2)
             self.completed_at = datetime.now(timezone.utc)
