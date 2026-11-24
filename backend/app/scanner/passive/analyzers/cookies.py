@@ -86,6 +86,16 @@ class CookieSecurityAnalyzer(BasePassiveAnalyzer):
             if not cookie or not cookie.get("name"):
                 continue
 
+            # Check if cookie is being deleted or expired (Max-Age=0 or 1970 expiration)
+            is_deletion = (
+                cookie.get("max_age") == 0
+                or (cookie.get("expires") and "1970" in str(cookie["expires"]))
+                or (cookie.get("value") == "" and cookie.get("max_age") is not None and cookie["max_age"] <= 0)
+            )
+            if is_deletion:
+                # Cookie is being invalidated/cleared by the application - suppression of false positives
+                continue
+
             cookie_name = cookie["name"]
             is_sensitive = bool(self.SENSITIVE_COOKIE_PATTERN.search(cookie_name))
 

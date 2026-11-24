@@ -39,6 +39,11 @@ class HTMLSecurityAnalyzer(BasePassiveAnalyzer):
         "ajax.googleapis.com"
     ]
 
+    THIRD_PARTY_EXTERNAL_DOMAINS = {
+        "google.com", "bing.com", "duckduckgo.com", "yahoo.com", "paypal.com",
+        "facebook.com", "twitter.com", "linkedin.com", "accounts.google.com"
+    }
+
     CSRF_TOKEN_FIELD_NAMES = {
         "csrf", "csrftoken", "_csrf", "csrf_token", "_token", "authenticity_token",
         "xsrf", "xsrf_token", "_xsrf", "antiforgery", "__requestverificationtoken"
@@ -59,24 +64,29 @@ class HTMLSecurityAnalyzer(BasePassiveAnalyzer):
             return findings
 
         # 1. Missing Security-Related Metadata (Charset & Viewport)
-        charset_tag = soup.find("meta", charset=True) or soup.find("meta", attrs={"http-equiv": lambda v: v and "content-type" in v.lower()})
-        if not charset_tag:
-            f = PassiveFinding(
-                rule_id="PASSIVE-HTML-MISSING-CHARSET",
-                title="Missing Character Encoding (<meta charset>) Declaration in HTML Document",
-                description="The HTML document does not explicitly specify a character encoding (such as UTF-8), exposing the document to character-set confusion and encoding-based cross-site scripting.",
-                cwe_id="CWE-436",
-                owasp_category="A05:2021 - Security Misconfiguration",
-                severity=Severity.INFORMATIONAL,
-                cvss_score=2.0,
-                status=FindingStatus.DETECTED,
-                confidence=0.9,
-                url=context.url,
-                evidence_response="No <meta charset='utf-8'> tag found in document <head>.",
-                remediation="Add '<meta charset=\"utf-8\">' as the first element inside the document's <head> section."
-            )
-            f.seal_evidence()
-            findings.append(f)
+        # Check if charset is already declared in HTTP Content-Type header (e.g. text/html; charset=utf-8)
+        content_type_hdr = (context.get_header("content-type") or "").lower()
+        has_http_header_charset = "charset=" in content_type_hdr
+
+        if not has_http_header_charset:
+            charset_tag = soup.find("meta", charset=True) or soup.find("meta", attrs={"http-equiv": lambda v: v and "content-type" in v.lower()})
+            if not charset_tag:
+                f = PassiveFinding(
+                    rule_id="PASSIVE-HTML-MISSING-CHARSET",
+                    title="Missing Character Encoding (<meta charset>) Declaration in HTML Document",
+                    description="The HTML document does not explicitly specify a character encoding (such as UTF-8) and the HTTP response header lacks a charset parameter, exposing the document to character-set confusion.",
+                    cwe_id="CWE-436",
+                    owasp_category="A05:2021 - Security Misconfiguration",
+                    severity=Severity.INFORMATIONAL,
+                    cvss_score=2.0,
+                    status=FindingStatus.DETECTED,
+                    confidence=0.9,
+                    url=context.url,
+                    evidence_response="No <meta charset='utf-8'> tag found in document <head> and Content-Type header lacks charset.",
+                    remediation="Add '<meta charset=\"utf-8\">' as the first element inside the document's <head> section or configure the web server to declare charset in Content-Type."
+                )
+                f.seal_evidence()
+                findings.append(f)
 
         viewport_tag = soup.find("meta", attrs={"name": lambda v: v and v.lower() == "viewport"})
         if not viewport_tag:
@@ -172,32 +182,40 @@ class HTMLSecurityAnalyzer(BasePassiveAnalyzer):
                     f.seal_evidence()
                     findings.append(f)
 
-            # Missing Anti-CSRF token on POST forms
+            # Missing Anti-CSRF token on POST forms (internal state-modifying actions)
             if method == "POST":
-                has_csrf = False
-                for inp in form.find_all("input"):
-                    field_name = (inp.get("name") or "").lower()
-                    if field_name in self.CSRF_TOKEN_FIELD_NAMES or any(tok in field_name for tok in ("csrf", "xsrf")):
-                        has_csrf = True
-                        break
+                # Check if form action targets an external third-party domain (e.g. search engine, external oauth)
+                is_third_party = any(tpd in action_parsed.netloc.lower() for tpd in self.THIRD_PARTY_EXTERNAL_DOMAINS)
+                if not is_third_party:
+                    has_csrf = False
+                    for inp in form.find_all(["input", "button"]):
+                        field_name = (inp.get("name") or "").lower()
+                        field_id = (inp.get("id") or "").lower()
+                        if (
+                            field_name in self.CSRF_TOKEN_FIELD_NAMES
+                            or any(tok in field_name for tok in ("csrf", "xsrf", "antiforgery"))
+                            or any(tok in field_id for tok in ("csrf", "xsrf"))
+                        ):
+                            has_csrf = True
+                            break
 
-                if not has_csrf:
-                    f = PassiveFinding(
-                        rule_id="PASSIVE-HTML-FORM-NO-CSRF-TOKEN",
-                        title="HTML POST Form Missing Explicit Anti-CSRF Token Field",
-                        description="The HTML form uses HTTP POST but does not include a recognized anti-CSRF token hidden input field, potentially exposing the action to Cross-Site Request Forgery.",
-                        cwe_id="CWE-352",
-                        owasp_category="A01:2021 - Broken Access Control",
-                        severity=Severity.MEDIUM,
-                        cvss_score=5.4,
-                        status=FindingStatus.DETECTED,
-                        confidence=0.8,
-                        url=context.url,
-                        evidence_response=f"<form action='{action}' method='POST'> without CSRF token",
-                        remediation="Embed a synchronized anti-CSRF token hidden field in every state-modifying POST form or validate SameSite cookie protections."
-                    )
-                    f.seal_evidence()
-                    findings.append(f)
+                    if not has_csrf:
+                        f = PassiveFinding(
+                            rule_id="PASSIVE-HTML-FORM-NO-CSRF-TOKEN",
+                            title="HTML POST Form Missing Explicit Anti-CSRF Token Field",
+                            description="The HTML form uses HTTP POST but does not include a recognized anti-CSRF token hidden input field, potentially exposing the action to Cross-Site Request Forgery.",
+                            cwe_id="CWE-352",
+                            owasp_category="A01:2021 - Broken Access Control",
+                            severity=Severity.MEDIUM,
+                            cvss_score=5.4,
+                            status=FindingStatus.DETECTED,
+                            confidence=0.8,
+                            url=context.url,
+                            evidence_response=f"<form action='{action}' method='POST'> without CSRF token",
+                            remediation="Embed a synchronized anti-CSRF token hidden field in every state-modifying POST form or validate SameSite cookie protections."
+                        )
+                        f.seal_evidence()
+                        findings.append(f)
 
         # 4. Potentially Sensitive Information in HTML Comments
         comments = soup.find_all(string=lambda text: isinstance(text, Comment))

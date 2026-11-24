@@ -120,6 +120,40 @@ def test_html_analyzer_form_cleartext_action_and_password(html_analyzer):
     assert "PASSIVE-HTML-FORM-NO-CSRF-TOKEN" in rule_ids
 
 
+def test_charset_in_content_type_header_suppresses_meta_charset(html_analyzer):
+    html = "<html><head><meta name='viewport' content='width=device-width'></head><body>Hello</body></html>"
+    context = HTTPResponseContext(
+        url="https://app.example.com/",
+        headers={"Content-Type": "text/html; charset=utf-8"},
+        body=html
+    )
+    findings = html_analyzer.analyze(context)
+    rule_ids = [f.rule_id for f in findings]
+    assert "PASSIVE-HTML-MISSING-CHARSET" not in rule_ids
+
+
+def test_csrf_external_form_action_not_flagged(html_analyzer):
+    html = """
+    <html>
+      <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+      <body>
+        <form action="https://www.google.com/search" method="POST">
+          <input type="text" name="q">
+          <button type="submit">Search</button>
+        </form>
+      </body>
+    </html>
+    """
+    context = HTTPResponseContext(
+        url="https://app.example.com/",
+        headers={"Content-Type": "text/html"},
+        body=html
+    )
+    findings = html_analyzer.analyze(context)
+    rule_ids = [f.rule_id for f in findings]
+    assert "PASSIVE-HTML-FORM-NO-CSRF-TOKEN" not in rule_ids
+
+
 def test_html_analyzer_sensitive_comments(html_analyzer):
     html = """
     <html>

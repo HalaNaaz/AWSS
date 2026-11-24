@@ -145,6 +145,21 @@ def test_permissions_policy_wildcard_detected(header_analyzer):
     assert "PASSIVE-HDR-PERMISSIONS-PERMISSIVE" in rule_ids
 
 
+def test_hsts_preload_directive_check(header_analyzer):
+    context = HTTPResponseContext(
+        url="https://secure.example.com/",
+        headers={
+            "Content-Type": "text/html",
+            "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
+        }
+    )
+    findings = header_analyzer.analyze(context)
+    rule_ids = [f.rule_id for f in findings]
+    assert "PASSIVE-HDR-HSTS-NO-PRELOAD" in rule_ids
+    assert "PASSIVE-HDR-HSTS-SHORT-MAXAGE" not in rule_ids
+    assert "PASSIVE-HDR-HSTS-NO-SUBDOMAINS" not in rule_ids
+
+
 def test_hardened_headers_produce_zero_findings(header_analyzer):
     context = HTTPResponseContext(
         url="https://app.example.com/",

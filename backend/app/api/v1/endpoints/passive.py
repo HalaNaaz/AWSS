@@ -17,7 +17,7 @@ class PassiveAnalyzeRequest(BaseModel):
     url: str
     status_code: int = 200
     headers: Dict[str, str] = Field(default_factory=dict)
-    body: Optional[str] = None
+    body: Optional[str] = Field(None, max_length=5_000_000, description="Response body up to 5MB")
     method: str = "GET"
     scan_id: Optional[UUID] = None
 

@@ -175,6 +175,24 @@ class SecurityHeaderAnalyzer(BasePassiveAnalyzer):
                     f.seal_evidence()
                     findings.append(f)
 
+                if "preload" not in hsts_lower:
+                    f = PassiveFinding(
+                        rule_id="PASSIVE-HDR-HSTS-NO-PRELOAD",
+                        title="HSTS Missing 'preload' Directive for Browser Preload Inclusion",
+                        description="The HSTS header does not specify the 'preload' directive, preventing inclusion in browser HSTS preload lists.",
+                        cwe_id="CWE-319",
+                        owasp_category="A02:2021 - Cryptographic Failures",
+                        severity=Severity.INFORMATIONAL,
+                        cvss_score=2.0,
+                        status=FindingStatus.DETECTED,
+                        confidence=0.85,
+                        url=context.url,
+                        evidence_response=f"Strict-Transport-Security: {hsts}",
+                        remediation="Append 'preload' to the Strict-Transport-Security header after submitting to hstspreload.org."
+                    )
+                    f.seal_evidence()
+                    findings.append(f)
+
         # 3. X-Content-Type-Options
         xcto = context.get_header("x-content-type-options")
         if not xcto or xcto.strip().lower() != "nosniff":

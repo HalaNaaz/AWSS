@@ -85,6 +85,18 @@ def test_cookie_plaintext_http_transmission(cookie_analyzer):
     assert f.severity == Severity.HIGH
 
 
+def test_cookie_deletion_directive_suppressed(cookie_analyzer):
+    # Cookies being invalidated with Max-Age=0 or 1970 expiry should not produce missing security flag noise
+    context = HTTPResponseContext(
+        url="https://app.example.com/logout",
+        headers={
+            "Set-Cookie": "session_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0"
+        }
+    )
+    findings = cookie_analyzer.analyze(context)
+    assert len(findings) == 0
+
+
 def test_fully_hardened_cookie_produces_zero_findings(cookie_analyzer):
     context = HTTPResponseContext(
         url="https://app.example.com/",

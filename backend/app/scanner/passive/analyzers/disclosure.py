@@ -49,9 +49,11 @@ class InformationDisclosureAnalyzer(BasePassiveAnalyzer):
         )
     ]
 
-    # Pattern for RFC 1918 Private IP leakage
+    # Validated IPv4 Octet pattern (0-255) for RFC 1918 Private IP leakage
     INTERNAL_IP_PATTERN = re.compile(
-        r'\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b'
+        r'\b(?:10\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|'
+        r'172\.(?:1[6-9]|2\d|3[01])\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|'
+        r'192\.168\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?))\b'
     )
 
     # Database connection string pattern
@@ -149,9 +151,9 @@ class InformationDisclosureAnalyzer(BasePassiveAnalyzer):
             f.seal_evidence()
             findings.append(f)
 
-        # Body checks (only if response body exists)
+        # Body checks (only if response body exists, capped at 1 MB for resource safety)
         if context.body:
-            body_text = context.body
+            body_text = context.body[:1_000_000]
 
             # 4. Detailed Stack Trace & Diagnostic Dump
             for trace_name, pattern, explanation in self.STACK_TRACE_PATTERNS:

@@ -95,6 +95,18 @@ def test_internal_rfc1918_ip_leak(disclosure_analyzer):
     assert "PASSIVE-INFO-INTERNAL-IP-LEAK" in rule_ids
 
 
+def test_invalid_ip_octets_not_flagged(disclosure_analyzer):
+    body = "Build version 10.999.888.777 deployed with code 192.168.300.500"
+    context = HTTPResponseContext(
+        url="https://app.example.com/version",
+        headers={"Content-Type": "text/plain"},
+        body=body
+    )
+    findings = disclosure_analyzer.analyze(context)
+    rule_ids = [f.rule_id for f in findings]
+    assert "PASSIVE-INFO-INTERNAL-IP-LEAK" not in rule_ids
+
+
 def test_database_uri_leak(disclosure_analyzer):
     body = "DB init failed: postgres://postgres:SecretPass123@db.internal:5432/production_db"
     context = HTTPResponseContext(

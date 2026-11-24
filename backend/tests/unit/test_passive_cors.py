@@ -62,6 +62,24 @@ def test_cors_wildcard_methods(cors_analyzer):
     assert "PASSIVE-CORS-OVERLY-PERMISSIVE-METHODS" in rule_ids
 
 
+def test_cors_reflected_origin_with_credentials(cors_analyzer):
+    context = HTTPResponseContext(
+        url="https://api.example.com/me",
+        headers={
+            "Access-Control-Allow-Origin": "https://attacker.com",
+            "Access-Control-Allow-Credentials": "true"
+        },
+        request_headers={
+            "Origin": "https://attacker.com"
+        }
+    )
+    findings = cors_analyzer.analyze(context)
+    rule_ids = [f.rule_id for f in findings]
+    assert "PASSIVE-CORS-REFLECTED-ORIGIN-WITH-CREDENTIALS" in rule_ids
+    f = next(f for f in findings if f.rule_id == "PASSIVE-CORS-REFLECTED-ORIGIN-WITH-CREDENTIALS")
+    assert f.severity == Severity.HIGH
+
+
 def test_secure_cors_produces_zero_findings(cors_analyzer):
     context = HTTPResponseContext(
         url="https://api.example.com/v1/data",

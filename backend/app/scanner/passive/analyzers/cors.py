@@ -14,6 +14,7 @@ class CORSAnalyzer(BasePassiveAnalyzer):
     category = "CORS Configuration"
     supported_rules = [
         "PASSIVE-CORS-WILDCARD-WITH-CREDENTIALS",
+        "PASSIVE-CORS-REFLECTED-ORIGIN-WITH-CREDENTIALS",
         "PASSIVE-CORS-WILDCARD-ORIGIN",
         "PASSIVE-CORS-NULL-ORIGIN",
         "PASSIVE-CORS-OVERLY-PERMISSIVE-METHODS"
@@ -50,6 +51,28 @@ class CORSAnalyzer(BasePassiveAnalyzer):
             )
             f.seal_evidence()
             findings.append(f)
+
+        # 1B. Dynamically Reflected Origin with Credentials Allowed
+        elif acac_bool and context.request_headers:
+            req_origin = context.request_headers.get("Origin") or context.request_headers.get("origin")
+            if req_origin and req_origin.lower() == acao_clean.lower() and req_origin != "null":
+                # Check if origin is unconstrained/external
+                f = PassiveFinding(
+                    rule_id="PASSIVE-CORS-REFLECTED-ORIGIN-WITH-CREDENTIALS",
+                    title="CORS Reflects Arbitrary Request Origin with Credentials Allowed",
+                    description="The server dynamically mirrors the inbound Origin header in Access-Control-Allow-Origin while setting Access-Control-Allow-Credentials: true, allowing arbitrary cross-origin sites to execute authenticated requests.",
+                    cwe_id="CWE-942",
+                    owasp_category="A01:2021 - Broken Access Control",
+                    severity=Severity.HIGH,
+                    cvss_score=8.5,
+                    status=FindingStatus.DETECTED,
+                    confidence=0.95,
+                    url=context.url,
+                    evidence_response=f"Request Origin: {req_origin}\nAccess-Control-Allow-Origin: {acao}\nAccess-Control-Allow-Credentials: {acac}",
+                    remediation="Validate request origins against an explicit strict allowlist of authorized domains before echoing the origin."
+                )
+                f.seal_evidence()
+                findings.append(f)
 
         # 2. Origin set to null
         elif acao_clean.lower() == "null":
