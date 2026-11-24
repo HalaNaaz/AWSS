@@ -1,52 +1,116 @@
 from typing import List, Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, BackgroundTasks, Response
 from shared.schemas.common import APIResponse, PaginatedResponse, ScanStatus
 from shared.schemas.scan import ScanJobCreate, ScanJobResponse
+from shared.schemas.finding import FindingResponse
+from shared.schemas.report import ReportFormat
+from backend.app.scanner.orchestration.scan_orchestrator import (
+    ScanOrchestrator,
+    scan_registry,
+)
+from backend.app.reporting.manager import ReportManager
 
 router = APIRouter()
+report_manager = ReportManager()
 
-# In-memory registry for foundation / mock testing before full worker deployment
-_MOCK_SCANS: dict[UUID, ScanJobResponse] = {}
+
+async def _run_scan_background(orchestrator: ScanOrchestrator) -> None:
+    """Executes scan orchestrator and registers resulting unified report."""
+    report = await orchestrator.run()
+    scan_registry.store_report(report)
 
 
 @router.post("/", response_model=APIResponse[ScanJobResponse], status_code=status.HTTP_201_CREATED)
-async def create_scan_job(job_in: ScanJobCreate) -> APIResponse[ScanJobResponse]:
-    """Registers and queues a new scan job."""
+async def create_scan_job(
+    job_in: ScanJobCreate,
+    background_tasks: BackgroundTasks,
+    run_sync: bool = Query(False, description="Execute synchronously and wait for completion (for testing/automation)"),
+) -> APIResponse[ScanJobResponse]:
+    """Registers and queues a new scan job, executing discovery and passive analysis."""
     scan_id = uuid4()
-    job_response = ScanJobResponse(
-        id=scan_id,
+    target_url = job_in.target_url or ""
+
+    orchestrator = ScanOrchestrator(
+        target_url=target_url,
+        scan_id=scan_id,
         target_id=job_in.target_id,
         profile=job_in.profile,
-        status=ScanStatus.QUEUED,
         max_crawl_depth=job_in.max_crawl_depth,
         max_urls=job_in.max_urls,
         concurrency=job_in.concurrency,
         rate_limit_rps=job_in.rate_limit_rps,
-        created_at=datetime.now(timezone.utc)
     )
-    _MOCK_SCANS[scan_id] = job_response
+    scan_registry.register_orchestrator(orchestrator)
+
+    if run_sync and target_url:
+        report = await orchestrator.run()
+        scan_registry.store_report(report)
+        job_response = orchestrator.get_job_response()
+    elif target_url:
+        background_tasks.add_task(_run_scan_background, orchestrator)
+        job_response = orchestrator.get_job_response()
+    else:
+        job_response = orchestrator.get_job_response()
+
     return APIResponse(
         success=True,
-        message="Scan job queued successfully.",
-        data=job_response
+        message="Scan job registered and queued successfully.",
+        data=job_response,
     )
+
+
+@router.get("/", response_model=APIResponse[List[ScanJobResponse]])
+async def list_scans() -> APIResponse[List[ScanJobResponse]]:
+    """Lists all registered scan jobs."""
+    jobs = scan_registry.list_jobs()
+    return APIResponse(success=True, data=jobs)
 
 
 @router.get("/{scan_id}", response_model=APIResponse[ScanJobResponse])
 async def get_scan_status(scan_id: UUID) -> APIResponse[ScanJobResponse]:
     """Retrieves current execution status of a scan job."""
-    if scan_id not in _MOCK_SCANS:
+    job = scan_registry.get_job(scan_id)
+    if not job:
         raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
-    return APIResponse(success=True, data=_MOCK_SCANS[scan_id])
+    return APIResponse(success=True, data=job)
 
 
 @router.post("/{scan_id}/cancel", response_model=APIResponse[ScanJobResponse])
 async def cancel_scan_job(scan_id: UUID) -> APIResponse[ScanJobResponse]:
     """Cancels an active or queued scan job."""
-    if scan_id not in _MOCK_SCANS:
+    job = scan_registry.get_job(scan_id)
+    if not job:
         raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
-    job = _MOCK_SCANS[scan_id]
-    job.status = ScanStatus.CANCELLED
-    return APIResponse(success=True, message="Scan job cancelled.", data=job)
+    scan_registry.cancel_scan(scan_id)
+    updated_job = scan_registry.get_job(scan_id)
+    return APIResponse(success=True, message="Scan job cancelled.", data=updated_job)
+
+
+@router.get("/{scan_id}/findings", response_model=APIResponse[List[FindingResponse]])
+async def get_scan_findings(scan_id: UUID) -> APIResponse[List[FindingResponse]]:
+    """Retrieves all security findings associated with a scan."""
+    job = scan_registry.get_job(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
+    findings = scan_registry.get_findings(scan_id)
+    return APIResponse(success=True, data=findings)
+
+
+@router.get("/{scan_id}/report")
+async def get_scan_report(
+    scan_id: UUID,
+    format: ReportFormat = Query(ReportFormat.JSON, description="Report output format"),
+) -> Response:
+    """Retrieves the formatted report for a completed scan job."""
+    report = scan_registry.get_report(scan_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report for scan job '{scan_id}' not found or scan not yet completed.")
+
+    try:
+        content = report_manager.generate_report(report, format)
+        media_type = report_manager.get_content_type(format)
+        return Response(content=content, media_type=media_type)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

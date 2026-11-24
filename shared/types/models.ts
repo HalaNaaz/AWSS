@@ -30,6 +30,7 @@ export type ScanProfile =
 
 export type ScanStatus =
   | "QUEUED"
+  | "RUNNING"
   | "PRE_FLIGHT"
   | "CRAWLING"
   | "ACTIVE_SCAN"
@@ -194,6 +195,34 @@ export interface ReconSummary {
   technologies: TechnologyObservation[];
   findings_count?: number;
   findings?: Finding[];
+}
+
+export type ReportFormat = "json" | "html" | "markdown" | "sarif";
+
+export interface SeveritySummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  informational: number;
+  total: number;
+}
+
+export interface UnifiedScanReport {
+  scan_id: string;
+  target_url: string;
+  profile: ScanProfile;
+  status: ScanStatus;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  duration_seconds: number;
+  urls_crawled: number;
+  endpoints_discovered: number;
+  forms_discovered: number;
+  technologies: TechnologyObservation[];
+  severity_summary: SeveritySummary;
+  findings: Finding[];
 }
 
 export interface APIResponse<T> {

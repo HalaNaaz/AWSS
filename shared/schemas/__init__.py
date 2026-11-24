@@ -39,6 +39,12 @@ from shared.schemas.discovery import (
     ReconSummaryResponse
 )
 
+from shared.schemas.report import (
+    ReportFormat,
+    SeveritySummarySchema,
+    UnifiedScanReport
+)
+
 __all__ = [
     "Severity",
     "FindingStatus",
@@ -47,6 +53,9 @@ __all__ = [
     "ScopeRuleType",
     "APIResponse",
     "PaginatedResponse",
+    "ReportFormat",
+    "SeveritySummarySchema",
+    "UnifiedScanReport",
     "ScopeRuleBase",
     "ScopeRuleCreate",
     "ScopeRuleResponse",

@@ -53,3 +53,14 @@ class ResourceNotFoundError(AshlynxException):
             code="RESOURCE_NOT_FOUND",
             details={"resource_type": resource_type, "identifier": identifier}
         )
+
+
+class ScanConfigurationError(AshlynxException):
+    """Raised when scan profile, report parameters, or paths are invalid."""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message=message,
+            code="SCAN_CONFIG_ERROR",
+            details=details or {}
+        )

@@ -66,7 +66,10 @@
 - `GET /api/v1/findings/{id}` — Get single finding with complete redacted HTTP request/response evidence and SHA-256 seal.
 - `POST /api/v1/findings/{id}/retest` (V1) — Trigger single-finding verification retest against patched endpoint.
 
-### 2.6 Report Generation
-- `GET /api/v1/reports/{scan_id}?format=sarif` — Download OASIS SARIF v2.1.0 document.
-- `GET /api/v1/reports/{scan_id}?format=pdf` — Download branded executive PDF report.
-- `GET /api/v1/reports/{scan_id}?format=json` — Raw scan telemetry dump.
+### 2.6 Report Generation & Export (Phase 2C)
+- `GET /api/v1/scans/{scan_id}/report` — Retrieve formatted report for a completed scan job.
+  - **Query Parameters:** `format` (`json`, `html`, `markdown`, `sarif`). Default: `json`.
+  - **Response:** Formatted string content with matching `Content-Type` header (`application/json`, `text/html; charset=utf-8`, `text/markdown; charset=utf-8`).
+- `GET /api/v1/reports/{scan_id}` — Export and download security assessment report.
+  - **Query Parameters:** `format` (`json`, `html`, `markdown`, `sarif`), `download` (boolean). Default format: `json`.
+  - **Response:** Report payload with optional `Content-Disposition: attachment; filename="ashlynx_report_{scan_id}.{ext}"` header.

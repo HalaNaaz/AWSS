@@ -40,6 +40,7 @@ class ScanProfile(str, Enum):
 
 class ScanStatus(str, Enum):
     QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
     PRE_FLIGHT = "PRE_FLIGHT"
     CRAWLING = "CRAWLING"
     ACTIVE_SCAN = "ACTIVE_SCAN"

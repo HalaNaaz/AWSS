@@ -1,8 +1,11 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
+from shared.schemas.report import SeveritySummarySchema
+from shared.schemas.discovery import TechnologyObservationSchema
+from shared.schemas.finding import FindingResponse
 
 console = Console()
 
@@ -25,29 +28,106 @@ class TerminalFormatter:
         console.print(Panel(subtitle, title=title, border_style="cyan"))
 
     @staticmethod
-    def render_findings_table(findings: List[Dict[str, Any]]) -> None:
-        if not findings:
-            console.print("[bold green]✓ Zero vulnerabilities detected.[/bold green]")
+    def render_scan_summary_panel(
+        target: str,
+        profile: str,
+        status: str,
+        duration: float,
+        urls: int,
+        findings_count: int,
+    ) -> None:
+        status_color = "green" if status == "COMPLETED" else ("yellow" if status == "CANCELLED" else "red")
+        text = Text()
+        text.append("Target URL:      ", style="bold")
+        text.append(f"{target}\n", style="cyan")
+        text.append("Profile:         ", style="bold")
+        text.append(f"{profile}\n", style="yellow")
+        text.append("Lifecycle State: ", style="bold")
+        text.append(f"{status}\n", style=f"bold {status_color}")
+        text.append("Duration:        ", style="bold")
+        text.append(f"{duration:.2f} seconds\n")
+        text.append("URLs Crawled:    ", style="bold")
+        text.append(f"{urls}\n")
+        text.append("Total Findings:  ", style="bold")
+        text.append(f"{findings_count}\n", style="bold white")
+
+        console.print(Panel(text, title="[bold cyan]Scan Execution Summary[/bold cyan]", border_style="cyan"))
+
+    @staticmethod
+    def render_severity_summary(summary: SeveritySummarySchema) -> None:
+        table = Table(title="Executive Vulnerability Breakdown", border_style="bright_black")
+        table.add_column("Severity Level", style="bold", width=18)
+        table.add_column("Count", justify="right", width=10)
+
+        table.add_row("[bold white on red]CRITICAL[/bold white on red]", str(summary.critical))
+        table.add_row("[bold red]HIGH[/bold red]", str(summary.high))
+        table.add_row("[bold yellow]MEDIUM[/bold yellow]", str(summary.medium))
+        table.add_row("[bold cyan]LOW[/bold cyan]", str(summary.low))
+        table.add_row("[dim white]INFORMATIONAL[/dim white]", str(summary.informational))
+        table.add_row("[bold white]TOTAL FINDINGS[/bold white]", f"[bold white]{summary.total}[/bold white]")
+
+        console.print(table)
+
+    @staticmethod
+    def render_technology_table(technologies: List[TechnologyObservationSchema]) -> None:
+        if not technologies:
             return
 
-        table = Table(title="Security Findings Summary", border_style="bright_black")
+        table = Table(title="Detected Technologies & Frameworks", border_style="bright_black")
+        table.add_column("Technology", style="bold cyan")
+        table.add_column("Category", style="yellow")
+        table.add_column("Version", style="white")
+        table.add_column("Confidence", style="dim")
+
+        for tech in technologies:
+            table.add_row(
+                tech.technology_name,
+                tech.category,
+                tech.version or "Unknown",
+                f"{tech.confidence:.2f}"
+            )
+
+        console.print(table)
+
+    @staticmethod
+    def render_findings_table(findings: Union[List[Dict[str, Any]], List[FindingResponse]]) -> None:
+        if not findings:
+            console.print("[bold green]✓ Zero security weaknesses detected.[/bold green]")
+            return
+
+        table = Table(title="Detailed Security Findings", border_style="bright_black")
         table.add_column("Severity", style="bold", width=14)
         table.add_column("Vulnerability Title", style="white")
         table.add_column("CWE", style="dim", width=10)
-        table.add_column("CVSS", justify="right", width=6)
+        table.add_column("Confidence", justify="right", width=10)
         table.add_column("Status", width=12)
         table.add_column("Endpoint", style="cyan")
 
-        for f in findings:
-            sev = f.get("severity", "MEDIUM")
+        for item in findings:
+            if isinstance(item, FindingResponse):
+                sev = item.severity.value
+                title = item.title
+                cwe = item.cwe_id or "CWE-Unknown"
+                conf = f"{item.confidence:.2f}"
+                stat = item.status.value
+                endpoint = item.endpoint.url if item.endpoint else "-"
+            else:
+                sev = item.get("severity", "MEDIUM")
+                title = item.get("title", "Unknown")
+                cwe = item.get("cwe_id", "CWE-Unknown")
+                conf_val = item.get("confidence", 0.7)
+                conf = f"{conf_val:.2f}" if isinstance(conf_val, (int, float)) else str(conf_val)
+                stat = item.get("status", "SUSPECTED")
+                endpoint = item.get("endpoint", {}).get("url", "-") if isinstance(item.get("endpoint"), dict) else "-"
+
             style = SEVERITY_STYLES.get(sev, "white")
             table.add_row(
                 f"[{style}]{sev}[/{style}]",
-                f.get("title", "Unknown"),
-                f.get("cwe_id", "CWE-Unknown"),
-                str(f.get("cvss_score", "0.0")),
-                f.get("status", "SUSPECTED"),
-                f.get("endpoint", {}).get("url", "-")
+                title,
+                cwe,
+                conf,
+                stat,
+                endpoint
             )
 
         console.print(table)
