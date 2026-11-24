@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+COPY cli/requirements.txt /app/cli/requirements.txt
+RUN pip install --no-cache-dir -r /app/cli/requirements.txt
+
+COPY shared /app/shared
+COPY cli /app/cli
+
+ENTRYPOINT ["python", "-m", "cli.ashlynx.main"]
+CMD ["--help"]
