@@ -2,11 +2,11 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Dict, Optional, Any
 from uuid import UUID, uuid4
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from shared.schemas.common import Severity, FindingStatus, ScanProfile, ScanStatus
 from shared.schemas.finding import FindingResponse
-from shared.schemas.discovery import TechnologyObservationSchema
+from shared.schemas.discovery import TechnologyObservationSchema, AttackSurfaceSummarySchema
 
 
 class ReportFormat(str, Enum):
@@ -43,7 +43,7 @@ class SeveritySummarySchema(BaseModel):
 
 
 class UnifiedScanReport(BaseModel):
-    """Authoritative structured unified scan report consolidating recon and passive findings."""
+    """Authoritative structured unified scan report consolidating recon, passive, active, and attack surface findings."""
     scan_id: UUID
     target_url: str
     profile: ScanProfile
@@ -60,6 +60,6 @@ class UnifiedScanReport(BaseModel):
     technologies: List[TechnologyObservationSchema] = []
     severity_summary: SeveritySummarySchema = Field(default_factory=SeveritySummarySchema)
     findings: List[FindingResponse] = []
+    attack_surface_summary: Optional[AttackSurfaceSummarySchema] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

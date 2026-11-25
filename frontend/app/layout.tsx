@@ -26,7 +26,8 @@ export default function RootLayout({
               </div>
             </div>
             <nav className="flex items-center space-x-6 text-sm font-medium text-slate-400">
-              <a href="/" className="text-cyan-400 hover:text-cyan-300">Dashboard</a>
+              <a href="/" className="hover:text-cyan-300">Dashboard</a>
+              <a href="/attack-surface" className="text-cyan-400 hover:text-cyan-300">Attack Surface</a>
               <a href="/scans" className="hover:text-slate-200">Scans</a>
               <a href="/targets" className="hover:text-slate-200">Targets</a>
               <a href="/findings" className="hover:text-slate-200">Findings</a>

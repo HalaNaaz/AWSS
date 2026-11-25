@@ -12,6 +12,7 @@ from backend.app.scanner.passive.engine import PassiveAnalysisEngine
 from backend.app.scanner.passive.models import HTTPResponseContext, PassiveFinding
 from backend.app.scanner.reconnaissance.js_analyzer import JavaScriptEndpointExtractor
 from backend.app.scanner.reconnaissance.robots_sitemap import RobotsSitemapDiscovery
+from backend.app.scanner.discovery.engine import AttackSurfaceIntelligenceEngine
 from backend.app.scanner.scope.scope_gate import ScopeGate
 from shared.schemas.common import ScopeRuleType
 from shared.schemas.discovery import (
@@ -55,6 +56,11 @@ class ReconOrchestrator:
             scope_rules=self.scope_rules,
             allow_private_ips=False
         )
+        self.discovery_engine = AttackSurfaceIntelligenceEngine(
+            target_base_url=self.target_url,
+            scope_gate=self.scope_gate,
+            scan_id=self.scan_id
+        )
         self.crawler: Optional[AsyncCrawler] = None
         self.discovered_endpoints: List[DiscoveredEndpointCreate] = []
         self.discovered_forms: List[FormMetadataSchema] = []
@@ -84,6 +90,14 @@ class ReconOrchestrator:
             # Step 1: Initial Baseline Request & Technology Fingerprint & Passive Checks
             root_resp, err = await client.get(self.target_url)
             if root_resp:
+                self.discovery_engine.ingest_crawled_page(
+                    url=self.target_url,
+                    status_code=root_resp.status_code,
+                    content_type=root_resp.headers.get("content-type"),
+                    response_size=len(root_resp.text) if root_resp.text else 0,
+                    headers=dict(root_resp.headers),
+                    body=root_resp.text
+                )
                 techs = TechnologyFingerprinter.fingerprint(
                     scan_id=self.scan_id,
                     headers=dict(root_resp.headers),
@@ -144,6 +158,24 @@ class ReconOrchestrator:
             self.discovered_endpoints = endpoints
             self.discovered_forms = forms
 
+            # Ingest crawl endpoints and forms into discovery engine
+            for ep in endpoints:
+                self.discovery_engine.ingest_crawled_page(
+                    url=ep.url,
+                    status_code=ep.status_code,
+                    content_type=ep.content_type,
+                    response_size=ep.response_size,
+                    source_url=ep.source_url,
+                    crawl_depth=ep.crawl_depth
+                )
+            for fm in forms:
+                self.discovery_engine.ingest_form(
+                    action_url=fm.action,
+                    method=fm.method,
+                    fields=[f.model_dump() if hasattr(f, "model_dump") else dict(f) for f in fm.fields],
+                    source_url=fm.source_url
+                )
+
             # Step 4: Passive JavaScript Analysis
             if self.analyze_javascript and not self._is_cancelled:
                 for js_url in list(script_urls)[:20]:  # Cap at top 20 scripts
@@ -152,7 +184,12 @@ class ReconOrchestrator:
                     if self.scope_gate.validate_url_in_scope(js_url):
                         js_resp, _ = await client.get(js_url)
                         if js_resp and js_resp.status_code == 200 and js_resp.text:
-                            candidate_apis = JavaScriptEndpointExtractor.extract_endpoints(
+                            # Ingest into attack surface intelligence
+                            js_intel = self.discovery_engine.ingest_javascript(
+                                js_content=js_resp.text,
+                                js_url=js_url
+                            )
+                            candidate_apis = js_intel.endpoints or JavaScriptEndpointExtractor.extract_endpoints(
                                 js_content=js_resp.text,
                                 base_url=self.target_url,
                                 scope_gate=self.scope_gate
@@ -182,6 +219,11 @@ class ReconOrchestrator:
             if key not in unique_findings_map:
                 unique_findings_map[key] = pf.to_finding_response(self.scan_id)
         final_findings = list(unique_findings_map.values())
+
+        # Ingest findings into discovery engine
+        for pf in final_findings:
+            ep_url = pf.endpoint.url if pf.endpoint else ""
+            self.discovery_engine.record_finding(pf.title, ep_url, pf.severity.value)
 
         # Step 6: Compute Summary Metrics
         elapsed_seconds = round(time.perf_counter() - start_time, 2)

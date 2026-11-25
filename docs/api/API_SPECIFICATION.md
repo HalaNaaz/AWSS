@@ -91,3 +91,12 @@
   ```
   - **Response:** `200 OK` with list of detected `FindingResponse` entities.
   - **Safety Gate:** Rejects unauthorized probes (`authorized: false`) with `403 Forbidden`. Enforces ScopeGate egress checks.
+
+### 2.8 Attack Surface Discovery & Intelligence (Phase 4)
+- `GET /api/v1/discovery/{scan_id}/summary` — Retrieve aggregated attack surface discovery summary statistics.
+- `GET /api/v1/discovery/{scan_id}/endpoints` — Retrieve discovered endpoints with category, method, and confidence filters.
+- `GET /api/v1/discovery/{scan_id}/parameters` — Retrieve classified parameters with heuristic categories and redacted values.
+- `GET /api/v1/discovery/{scan_id}/apis` — Retrieve cataloged API routes by architectural pattern (REST, GraphQL, OpenAPI, WS, RPC) and version.
+- `GET /api/v1/discovery/{scan_id}/assets` — Retrieve mapped client-side assets by type (JS, CSS, Image, Font, Doc, SourceMap).
+- `GET /api/v1/discovery/{scan_id}/graph` — Retrieve attack surface topology graph in standard JSON or Cytoscape.js format (`?graph_format=cytoscape`).
+- `GET /api/v1/discovery/{scan_id}/prioritized` — Retrieve exploration-prioritized endpoints ranked by evidence-based heuristics.

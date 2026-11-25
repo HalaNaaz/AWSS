@@ -8,8 +8,17 @@ from backend.app.core.logging import logger
 from backend.app.scanner.reconnaissance.orchestrator import ReconOrchestrator
 from backend.app.scanner.crawler.client import AsyncHTTPClient
 from backend.app.scanner.active import ActiveDetectionEngine, ActiveTarget
+from backend.app.scanner.discovery.engine import AttackSurfaceIntelligenceEngine
 from shared.schemas.common import ScanProfile, ScanStatus, ScopeRuleType
-from shared.schemas.discovery import ReconSummaryResponse
+from shared.schemas.discovery import (
+    ReconSummaryResponse,
+    AttackSurfaceSummarySchema,
+    AttackSurfaceGraphSchema,
+    PrioritizedEndpointSchema,
+    ParameterIntelligenceSchema,
+    APIEndpointSchema,
+    AssetIntelligenceSchema
+)
 from shared.schemas.finding import FindingResponse
 from shared.schemas.report import UnifiedScanReport, SeveritySummarySchema
 from shared.schemas.scan import SCAN_PROFILE_PRESETS, ScanJobResponse, ScanJobCreate
@@ -83,6 +92,18 @@ class ScanOrchestrator:
     @property
     def is_cancelled(self) -> bool:
         return self._is_cancelled
+
+    @property
+    def discovery_engine(self) -> Optional[AttackSurfaceIntelligenceEngine]:
+        if self._recon_orchestrator and hasattr(self._recon_orchestrator, "discovery_engine"):
+            return self._recon_orchestrator.discovery_engine
+        return None
+
+    def get_attack_surface_summary(self) -> Optional[AttackSurfaceSummarySchema]:
+        eng = self.discovery_engine
+        if eng:
+            return eng.get_summary()
+        return None
 
     def get_job_response(self) -> ScanJobResponse:
         """Returns the current state formatted as a ScanJobResponse."""
@@ -201,6 +222,15 @@ class ScanOrchestrator:
                 converted_active = [af.to_finding_response(self.scan_id) for af in active_findings]
                 combined = list(recon_summary.findings or []) + converted_active
 
+                # Record active findings in attack surface intelligence
+                if self.discovery_engine:
+                    for af in active_findings:
+                        self.discovery_engine.record_finding(
+                            finding_title=af.title,
+                            endpoint_url=af.url,
+                            severity=af.severity.value
+                        )
+
                 # Deduplicate by (rule_id, url, parameter)
                 unique_findings_map = {}
                 for f in combined:
@@ -261,6 +291,7 @@ class ScanOrchestrator:
             technologies=recon_summary.technologies,
             severity_summary=severity_summary,
             findings=findings,
+            attack_surface_summary=self.get_attack_surface_summary()
         )
 
     def _build_cancelled_report(self) -> UnifiedScanReport:
@@ -301,12 +332,13 @@ class ScanOrchestrator:
 
 
 class ScanLifecycleRegistry:
-    """Thread-safe in-memory registry managing scan jobs, active orchestrators, and unified reports."""
+    """Thread-safe in-memory registry managing scan jobs, active orchestrators, unified reports, and discovery engines."""
 
     def __init__(self):
         self._jobs: Dict[UUID, ScanJobResponse] = {}
         self._orchestrators: Dict[UUID, ScanOrchestrator] = {}
         self._reports: Dict[UUID, UnifiedScanReport] = {}
+        self._discovery_engines: Dict[UUID, AttackSurfaceIntelligenceEngine] = {}
 
     def register_job(self, job: ScanJobResponse) -> None:
         self._jobs[job.id] = job
@@ -314,6 +346,18 @@ class ScanLifecycleRegistry:
     def register_orchestrator(self, orchestrator: ScanOrchestrator) -> None:
         self._orchestrators[orchestrator.scan_id] = orchestrator
         self._jobs[orchestrator.scan_id] = orchestrator.get_job_response()
+        if orchestrator.discovery_engine:
+            self._discovery_engines[orchestrator.scan_id] = orchestrator.discovery_engine
+
+    def register_discovery_engine(self, scan_id: UUID, engine: AttackSurfaceIntelligenceEngine) -> None:
+        self._discovery_engines[scan_id] = engine
+
+    def get_discovery_engine(self, scan_id: UUID) -> Optional[AttackSurfaceIntelligenceEngine]:
+        if scan_id in self._discovery_engines:
+            return self._discovery_engines[scan_id]
+        if scan_id in self._orchestrators and self._orchestrators[scan_id].discovery_engine:
+            return self._orchestrators[scan_id].discovery_engine
+        return None
 
     def get_job(self, scan_id: UUID) -> Optional[ScanJobResponse]:
         if scan_id in self._orchestrators:
@@ -367,6 +411,7 @@ class ScanLifecycleRegistry:
         self._jobs.clear()
         self._orchestrators.clear()
         self._reports.clear()
+        self._discovery_engines.clear()
 
 
 # Global singleton registry instance

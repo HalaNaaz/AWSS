@@ -36,7 +36,22 @@ from shared.schemas.discovery import (
     DiscoveredEndpointCreate,
     DiscoveredEndpointResponse,
     ReconStartRequest,
-    ReconSummaryResponse
+    ReconSummaryResponse,
+    ParameterCategory,
+    ParameterLocation,
+    ParameterIntelligenceSchema,
+    APIType,
+    APIEndpointSchema,
+    AssetType,
+    AssetIntelligenceSchema,
+    NodeType,
+    EdgeType,
+    AttackSurfaceNode,
+    AttackSurfaceEdge,
+    AttackSurfaceGraphSchema,
+    PriorityLevel,
+    PrioritizedEndpointSchema,
+    AttackSurfaceSummarySchema
 )
 
 from shared.schemas.report import (
@@ -78,5 +93,20 @@ __all__ = [
     "DiscoveredEndpointCreate",
     "DiscoveredEndpointResponse",
     "ReconStartRequest",
-    "ReconSummaryResponse"
+    "ReconSummaryResponse",
+    "ParameterCategory",
+    "ParameterLocation",
+    "ParameterIntelligenceSchema",
+    "APIType",
+    "APIEndpointSchema",
+    "AssetType",
+    "AssetIntelligenceSchema",
+    "NodeType",
+    "EdgeType",
+    "AttackSurfaceNode",
+    "AttackSurfaceEdge",
+    "AttackSurfaceGraphSchema",
+    "PriorityLevel",
+    "PrioritizedEndpointSchema",
+    "AttackSurfaceSummarySchema"
 ]
