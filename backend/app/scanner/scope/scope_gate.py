@@ -1,7 +1,7 @@
 import ipaddress
 import re
 import socket
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from urllib.parse import urlparse
 
 from backend.app.core.exceptions import ScopeViolationError, SSRFValidationError
@@ -45,6 +45,7 @@ class ScopeGate:
         self.parsed_target = urlparse(target_base_url)
         self.scope_rules = list(scope_rules or [])
         self.allow_private_ips = allow_private_ips
+        self.pin_map: Dict[str, str] = {}
 
         # If no explicit include rules, target base domain is the implicit scope root
         if not any(rule[0] == ScopeRuleType.INCLUDE for rule in self.scope_rules):
@@ -97,7 +98,7 @@ class ScopeGate:
         """Resolves hostname to IP and verifies it against prohibited ranges.
         
         Returns the validated, pinned IP string.
-        Raises SSRFValidationError if the IP is prohibited.
+        Raises SSRFValidationError if any resolved IP is prohibited.
         """
         try:
             # Resolve DNS
@@ -105,20 +106,26 @@ class ScopeGate:
             if not addr_info:
                 raise SSRFValidationError(hostname, "unresolved", "DNS resolution returned no records")
             
-            # Select first resolved IP
-            resolved_ip = addr_info[0][4][0]
-        except (socket.gaierror, Exception) as exc:
-            raise SSRFValidationError(hostname, "error", f"DNS resolution failed: {str(exc)}")
+            # Verify ALL resolved IPs across IPv4 and IPv6 records
+            for entry in addr_info:
+                ip_cand = entry[4][0]
+                if self.is_ip_prohibited(ip_cand):
+                    logger.warning(
+                        f"[ScopeGate] Blocked SSRF attempt: {hostname} -> {ip_cand} (prohibited IP detected)"
+                    )
+                    raise SSRFValidationError(
+                        hostname=hostname,
+                        resolved_ip=ip_cand,
+                        reason="IP is within prohibited RFC 1918 / Cloud Metadata CIDR"
+                    )
 
-        if self.is_ip_prohibited(resolved_ip):
-            logger.warning(
-                f"[ScopeGate] Blocked SSRF attempt: {hostname} -> {resolved_ip}"
-            )
-            raise SSRFValidationError(
-                hostname=hostname,
-                resolved_ip=resolved_ip,
-                reason="IP is within prohibited RFC 1918 / Cloud Metadata CIDR"
-            )
+            # Select first validated IP
+            resolved_ip = addr_info[0][4][0]
+            self.pin_map[hostname] = resolved_ip
+        except (socket.gaierror, Exception) as exc:
+            if isinstance(exc, SSRFValidationError):
+                raise
+            raise SSRFValidationError(hostname, "error", f"DNS resolution failed: {str(exc)}")
 
         return resolved_ip
 

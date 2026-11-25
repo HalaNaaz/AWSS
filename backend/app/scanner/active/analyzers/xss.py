@@ -78,8 +78,11 @@ class XSSAnalyzer(BaseActiveAnalyzer):
             resp_text = resp.text
             escaped_html_canary = html.escape(html_canary)
 
-            # Check if reflected unescaped
-            if html_canary in resp_text:
+            # Check if reflected unescaped in an executable HTML context
+            content_type = (resp.headers.get("content-type") or "").lower()
+            is_non_executable_mime = bool(content_type and not any(ct in content_type for ct in ("html", "xhtml", "xml")))
+
+            if html_canary in resp_text and not is_non_executable_mime:
                 # Raw unescaped HTML tag reflection verified
                 finding = ActiveFinding(
                     rule_id="ACT-XSS-REFLECTED-HTML",

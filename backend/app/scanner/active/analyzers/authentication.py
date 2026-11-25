@@ -7,6 +7,7 @@ from shared.schemas.common import Severity, FindingStatus
 from backend.app.scanner.active.base import BaseActiveAnalyzer
 from backend.app.scanner.active.models import ActiveTarget, ActiveFinding, RequestBudgetTracker
 from backend.app.scanner.crawler.client import AsyncHTTPClient
+from backend.app.scanner.evidence.redactor import EvidenceRedactor
 
 
 class AuthenticationAnalyzer(BaseActiveAnalyzer):
@@ -155,8 +156,8 @@ class AuthenticationAnalyzer(BaseActiveAnalyzer):
                                         url=target.url,
                                         parameter=cookie_name,
                                         http_method="GET",
-                                        evidence_request=f"Cookie: {cookie_name}={cookie_val}",
-                                        evidence_response=f"Set-Cookie: {second_cookie_hdr[:200]}",
+                                        evidence_request=EvidenceRedactor.redact(f"Cookie: {cookie_name}={cookie_val}"),
+                                        evidence_response=EvidenceRedactor.redact(f"Set-Cookie: {second_cookie_hdr[:200]}"),
                                         remediation="Always invalidate the existing session and generate a brand new session identifier upon authentication state change.",
                                         detection_module=self.analyzer_id,
                                         probe_count=2,

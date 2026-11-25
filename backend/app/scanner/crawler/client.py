@@ -10,8 +10,62 @@ from backend.app.core.logging import logger
 from backend.app.scanner.scope.scope_gate import ScopeGate
 
 
+import asyncio
+import time
+from typing import Optional, Dict, Any, Tuple
+from urllib.parse import urlparse, urljoin
+import httpx
+import httpcore
+import httpcore._backends.anyio
+
+from backend.app.core.config import settings
+from backend.app.core.exceptions import ScopeViolationError, SSRFValidationError
+from backend.app.core.logging import logger
+from backend.app.scanner.scope.scope_gate import ScopeGate
+
+
+class PinningNetworkBackend(httpcore._backends.anyio.AnyIOBackend):
+    """Network backend that enforces socket IP pinning to prevent DNS rebinding TOCTOU."""
+
+    def __init__(self, pin_map: Dict[str, str]):
+        super().__init__()
+        self.pin_map = pin_map
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: Optional[float] = None,
+        local_address: Optional[str] = None,
+        socket_options: Any = None,
+    ):
+        pinned = self.pin_map.get(host, host)
+        return await super().connect_tcp(
+            host=pinned,
+            port=port,
+            timeout=timeout,
+            local_address=local_address,
+            socket_options=socket_options,
+        )
+
+
+class PinningTransport(httpx.AsyncHTTPTransport):
+    """Async transport utilizing PinningNetworkBackend for socket-level IP binding."""
+
+    def __init__(self, pin_map: Dict[str, str], **kwargs):
+        super().__init__(**kwargs)
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=self._pool._ssl_context,
+            max_connections=kwargs.get("limits", httpx.Limits()).max_connections,
+            max_keepalive_connections=kwargs.get("limits", httpx.Limits()).max_keepalive_connections,
+            http1=True,
+            http2=False,
+            network_backend=PinningNetworkBackend(pin_map),
+        )
+
+
 class AsyncHTTPClient:
-    """Hardened Asynchronous HTTP Client with ScopeGate pre-flight validation and redirect safety."""
+    """Hardened Asynchronous HTTP Client with ScopeGate pre-flight validation, socket pinning, and redirect safety."""
 
     def __init__(
         self,
@@ -35,11 +89,15 @@ class AsyncHTTPClient:
 
     async def __aenter__(self):
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=50)
+        transport = PinningTransport(
+            pin_map=self.scope_gate.pin_map,
+            verify=True,
+            limits=limits,
+        )
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(self.timeout, connect=5.0),
             follow_redirects=False,  # Redirects manually validated at every hop!
-            verify=True,             # TLS verification strictly enabled by default
-            limits=limits,
+            transport=transport,
             headers={"User-Agent": self.user_agent}
         )
         return self
@@ -48,12 +106,17 @@ class AsyncHTTPClient:
         if self._client:
             await self._client.aclose()
 
-    async def get(
+    async def request(
         self,
+        method: str,
         url: str,
-        headers: Optional[Dict[str, str]] = None
+        headers: Optional[Dict[str, str]] = None,
+        content: Optional[bytes] = None,
+        data: Optional[Any] = None,
+        json: Optional[Any] = None,
+        follow_redirects: bool = True,
     ) -> Tuple[Optional[httpx.Response], Optional[str]]:
-        """Executes a safe GET request, validating scope and IP pinning on initial request and every redirect hop.
+        """Executes a safe HTTP request, validating scope and IP pinning on initial request and every redirect hop.
         
         Returns:
             Tuple of (Response object or None, error_message or None)
@@ -62,6 +125,10 @@ class AsyncHTTPClient:
             raise RuntimeError("AsyncHTTPClient must be used as an async context manager ('async with').")
 
         current_url = url
+        current_method = method.upper()
+        current_content = content
+        current_data = data
+        current_json = json
         redirect_count = 0
 
         while redirect_count <= self.max_redirects:
@@ -82,7 +149,15 @@ class AsyncHTTPClient:
                 if headers:
                     req_headers.update(headers)
 
-                response = await self._client.get(current_url, headers=req_headers)
+                async with self._rate_limiter:
+                    response = await self._client.request(
+                        method=current_method,
+                        url=current_url,
+                        headers=req_headers,
+                        content=current_content,
+                        data=current_data,
+                        json=current_json,
+                    )
                 response_time = (time.perf_counter() - start_time) * 1000
 
                 # Check response size cap
@@ -98,12 +173,14 @@ class AsyncHTTPClient:
 
                 # Step 3: Handle Redirects Securely
                 if response.status_code in (301, 302, 303, 307, 308):
+                    if not follow_redirects:
+                        return response, None
+
                     location = response.headers.get("Location")
                     if not location:
                         return response, None
 
                     # Resolve relative redirect
-                    from urllib.parse import urljoin
                     redirect_target = urljoin(current_url, location)
 
                     # Validate redirect hop through ScopeGate
@@ -112,6 +189,13 @@ class AsyncHTTPClient:
                     except (ScopeViolationError, SSRFValidationError) as redirect_err:
                         logger.warning(f"[AsyncHTTPClient] Redirect to '{redirect_target}' rejected: {redirect_err.message}")
                         return response, f"Redirect to unsafe destination blocked: {redirect_err.message}"
+
+                    # For 303, or 301/302 from POST, standard behavior is switch to GET
+                    if response.status_code == 303 or (response.status_code in (301, 302) and current_method == "POST"):
+                        current_method = "GET"
+                        current_content = None
+                        current_data = None
+                        current_json = None
 
                     current_url = redirect_target
                     redirect_count += 1
@@ -127,3 +211,37 @@ class AsyncHTTPClient:
                 return None, f"HTTP dispatch error: {str(err)}"
 
         return None, f"Exceeded maximum redirect limit ({self.max_redirects})"
+
+    async def get(
+        self,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        follow_redirects: bool = True,
+    ) -> Tuple[Optional[httpx.Response], Optional[str]]:
+        """Executes a safe GET request."""
+        return await self.request(
+            method="GET",
+            url=url,
+            headers=headers,
+            follow_redirects=follow_redirects,
+        )
+
+    async def post(
+        self,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        content: Optional[bytes] = None,
+        data: Optional[Any] = None,
+        json: Optional[Any] = None,
+        follow_redirects: bool = True,
+    ) -> Tuple[Optional[httpx.Response], Optional[str]]:
+        """Executes a safe POST request."""
+        return await self.request(
+            method="POST",
+            url=url,
+            headers=headers,
+            content=content,
+            data=data,
+            json=json,
+            follow_redirects=follow_redirects,
+        )

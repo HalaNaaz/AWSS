@@ -158,10 +158,11 @@ class SQLInjectionAnalyzer(BaseActiveAnalyzer):
                     true_resp.status_code == (target.baseline_status or 200)
                     and (true_resp.text == (target.baseline_body or "") or abs(true_len - baseline_len) < 50)
                 )
-                false_differs = (
-                    false_resp.status_code != true_resp.status_code
-                    or false_resp.text != true_resp.text
-                )
+                delta_false = abs(false_len - true_len)
+                status_differs = false_resp.status_code != true_resp.status_code
+                # Resist micro-fluctuations (e.g. dynamic timestamps or nonces) by requiring meaningful differential
+                body_significantly_differs = delta_false >= 15 or (delta_false > 0 and abs(false_len - baseline_len) >= 15)
+                false_differs = status_differs or body_significantly_differs
 
                 if true_matches_baseline and false_differs:
                     verified_finding = ActiveFinding(

@@ -109,14 +109,19 @@ async def test_misconfig_open_redirect_detected(misconfig_analyzer, mock_client)
         baseline_status=200,
         baseline_body="<html>Login Form</html>",
     )
-    mock_client.request.return_value = (MagicMock(headers={"allow": "GET"}), None)
-
     # Server accepts redirect without validation
     redirect_resp = MagicMock(
         status_code=302,
         headers={"location": "https://example.org/ashlynx_safe_test"},
         text="",
     )
+
+    async def mock_request_impl(method, url, *args, **kwargs):
+        if method == "OPTIONS":
+            return MagicMock(headers={"allow": "GET"}), None
+        return redirect_resp, None
+
+    mock_client.request.side_effect = mock_request_impl
     mock_client.get.return_value = (redirect_resp, None)
 
     budget = RequestBudgetTracker(budget=10)

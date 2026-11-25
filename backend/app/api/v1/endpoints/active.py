@@ -3,6 +3,8 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from backend.app.core.exceptions import ScopeViolationError, SSRFValidationError
+from backend.app.core.logging import logger
 from backend.app.scanner.active.registry import active_plugin_registry
 from backend.app.scanner.active.engine import ActiveDetectionEngine
 from backend.app.scanner.active.models import ActiveTarget
@@ -12,6 +14,8 @@ from shared.schemas.common import APIResponse, ScanProfile
 from shared.schemas.finding import FindingResponse
 
 router = APIRouter()
+
+ALLOWED_PROBE_METHODS = {"GET", "POST", "HEAD", "OPTIONS", "PUT"}
 
 
 class ActiveAnalyzerMetadata(BaseModel):
@@ -29,6 +33,7 @@ class ActiveProbeRequest(BaseModel):
     parameters: Dict[str, str] = Field(default_factory=dict)
     profile: ScanProfile = ScanProfile.SAFE_ACTIVE
     modules: Optional[List[str]] = None
+    target_id: Optional[UUID] = None
     authorized: bool = Field(False, description="Mandatory authorization confirmation (Safety Gate)")
     request_budget: int = Field(default=20, ge=1, le=100)
 
@@ -64,6 +69,13 @@ async def probe_endpoint_actively(request_in: ActiveProbeRequest) -> APIResponse
             detail="Safety Gate Violation: Explicit authorization confirmation ('authorized: true') is mandatory before conducting active security testing.",
         )
 
+    probe_method = request_in.method.upper()
+    if probe_method not in ALLOWED_PROBE_METHODS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported HTTP probe method '{request_in.method}'. Supported methods: {', '.join(sorted(ALLOWED_PROBE_METHODS))}",
+        )
+
     scan_id = uuid4()
     scope_gate = ScopeGate(target_base_url=request_in.url, allow_private_ips=False)
 
@@ -74,15 +86,26 @@ async def probe_endpoint_actively(request_in: ActiveProbeRequest) -> APIResponse
             detail=f"Target URL '{request_in.url}' violates ScopeGate restrictions.",
         )
 
+    try:
+        scope_gate.pre_flight_check(request_in.url)
+    except (ScopeViolationError, SSRFValidationError) as sec_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Safety Gate rejected target: {sec_err.message}",
+        )
+    except Exception as e:
+        logger.debug(f"Pre-flight resolution in probe endpoint: {e}")
+
     target = ActiveTarget(
         url=request_in.url,
-        method=request_in.method,
+        method=probe_method,
         parameters=request_in.parameters,
     )
 
+    budget_val = min(max(1, request_in.request_budget), 100)
     engine = ActiveDetectionEngine(
         registry=active_plugin_registry,
-        request_budget=request_in.request_budget,
+        request_budget=budget_val,
         concurrency=2,
         timeout_seconds=10.0,
     )

@@ -6,6 +6,7 @@ from shared.schemas.common import Severity, FindingStatus
 from backend.app.scanner.active.base import BaseActiveAnalyzer
 from backend.app.scanner.active.models import ActiveTarget, ActiveFinding, RequestBudgetTracker
 from backend.app.scanner.crawler.client import AsyncHTTPClient
+from backend.app.scanner.evidence.redactor import EvidenceRedactor
 
 
 class MisconfigurationAnalyzer(BaseActiveAnalyzer):
@@ -173,7 +174,7 @@ class MisconfigurationAnalyzer(BaseActiveAnalyzer):
                                 confidence=0.95,
                                 url=check_url,
                                 http_method="GET",
-                                evidence_response=f"HTTP 200 OK\r\n\r\n{resp.text[:200]}",
+                                evidence_response=EvidenceRedactor.redact(f"HTTP 200 OK\r\n\r\n{resp.text[:200]}"),
                                 remediation="Block public web server access to dotfiles, configuration files, and version control directories.",
                                 detection_module=self.analyzer_id,
                                 probe_count=1,
@@ -195,7 +196,7 @@ class MisconfigurationAnalyzer(BaseActiveAnalyzer):
                     )
 
                     budget.consume(1)
-                    resp, _ = await client.get(test_url)
+                    resp, _ = await client.request("GET", test_url, follow_redirects=False)
                     if resp and resp.status_code in (301, 302, 303, 307, 308):
                         loc = resp.headers.get("location", "")
                         if loc.startswith("https://example.org") or loc.startswith("//example.org"):
