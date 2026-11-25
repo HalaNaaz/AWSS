@@ -257,6 +257,15 @@ class AttackSurfaceIntelligenceEngine:
             node_type=NodeType.JS_ASSET
         )
 
+        # Record JS asset in asset inventory
+        self.asset_engine.record_asset(
+            url=js_url,
+            content_type="application/javascript",
+            size_bytes=len(js_content.encode("utf-8")),
+            discovery_source="JS_EXTRACTOR",
+            in_scope=True
+        )
+
         # Ingest discovered endpoints
         for ep_url in result.endpoints:
             ep = self.endpoint_engine.add_endpoint(

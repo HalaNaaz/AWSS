@@ -3,6 +3,7 @@ import time
 from typing import Optional, List, Dict, Tuple
 from uuid import UUID, uuid4
 
+from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.scanner.crawler.client import AsyncHTTPClient
 from backend.app.scanner.crawler.crawler import AsyncCrawler
@@ -54,7 +55,7 @@ class ReconOrchestrator:
         self.scope_gate = ScopeGate(
             target_base_url=self.target_url,
             scope_rules=self.scope_rules,
-            allow_private_ips=False
+            allow_private_ips=settings.ALLOW_PRIVATE_IPS
         )
         self.discovery_engine = AttackSurfaceIntelligenceEngine(
             target_base_url=self.target_url,

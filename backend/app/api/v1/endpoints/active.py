@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from backend.app.core.config import settings
 from backend.app.core.exceptions import ScopeViolationError, SSRFValidationError
 from backend.app.core.logging import logger
 from backend.app.scanner.active.registry import active_plugin_registry
@@ -105,7 +106,7 @@ async def probe_endpoint_actively(request_in: ActiveProbeRequest) -> APIResponse
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Target '{target_info.get('name')}' ownership has not been verified. Active scanning is restricted to verified targets.",
             )
-        target_gate = ScopeGate(target_base_url=target_info["base_url"], allow_private_ips=False)
+        target_gate = ScopeGate(target_base_url=target_info["base_url"], allow_private_ips=settings.ALLOW_PRIVATE_IPS)
         if not target_gate.validate_url_in_scope(request_in.url):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -113,7 +114,7 @@ async def probe_endpoint_actively(request_in: ActiveProbeRequest) -> APIResponse
             )
         scope_gate = target_gate
     else:
-        scope_gate = ScopeGate(target_base_url=request_in.url, allow_private_ips=False)
+        scope_gate = ScopeGate(target_base_url=request_in.url, allow_private_ips=settings.ALLOW_PRIVATE_IPS)
 
     # Validate target URL via ScopeGate
     if not scope_gate.validate_url_in_scope(request_in.url):
