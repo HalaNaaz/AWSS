@@ -15,7 +15,21 @@ from shared.schemas.finding import FindingResponse
 
 router = APIRouter()
 
-ALLOWED_PROBE_METHODS = {"GET", "POST", "HEAD", "OPTIONS", "PUT"}
+# Strictly safe probe methods (PUT is explicitly prohibited to prevent state-mutating resource overwrites)
+ALLOWED_PROBE_METHODS = {"GET", "POST", "HEAD", "OPTIONS"}
+
+# In-memory verified target registry for target validation
+_VERIFIED_TARGETS: Dict[UUID, Dict[str, Any]] = {}
+
+
+def register_verified_target(target_id: UUID, base_url: str, name: str = "Verified Target", verified: bool = True):
+    """Registers a target for authorized active scanning."""
+    _VERIFIED_TARGETS[target_id] = {
+        "id": target_id,
+        "base_url": base_url,
+        "name": name,
+        "verified": verified,
+    }
 
 
 class ActiveAnalyzerMetadata(BaseModel):
@@ -77,7 +91,29 @@ async def probe_endpoint_actively(request_in: ActiveProbeRequest) -> APIResponse
         )
 
     scan_id = uuid4()
-    scope_gate = ScopeGate(target_base_url=request_in.url, allow_private_ips=False)
+
+    # Server-side target ownership and scope validation
+    if request_in.target_id:
+        target_info = _VERIFIED_TARGETS.get(request_in.target_id)
+        if not target_info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Target ID '{request_in.target_id}' not found in registered targets.",
+            )
+        if not target_info.get("verified", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Target '{target_info.get('name')}' ownership has not been verified. Active scanning is restricted to verified targets.",
+            )
+        target_gate = ScopeGate(target_base_url=target_info["base_url"], allow_private_ips=False)
+        if not target_gate.validate_url_in_scope(request_in.url):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Probe URL '{request_in.url}' is outside authorized scope of target '{target_info['base_url']}'.",
+            )
+        scope_gate = target_gate
+    else:
+        scope_gate = ScopeGate(target_base_url=request_in.url, allow_private_ips=False)
 
     # Validate target URL via ScopeGate
     if not scope_gate.validate_url_in_scope(request_in.url):

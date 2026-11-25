@@ -318,13 +318,16 @@ class AttackSurfaceIntelligenceEngine:
             node_type=NodeType.FINDING,
             metadata={"severity": severity}
         )
-        ep_node_id = f"ep:{endpoint_url}:GET"
-        if ep_node_id in self.graph._nodes:
-            self.graph.add_edge(
-                source_id=ep_node_id,
-                target_id=f_node_id,
-                edge_type=EdgeType.HAS_FINDING
-            )
+        # Link to matching endpoint node if present in graph (support GET, POST, or other methods)
+        for method in ("GET", "POST", "HEAD", "OPTIONS", "PUT", "DELETE"):
+            ep_node_id = f"ep:{endpoint_url}:{method}"
+            if ep_node_id in self.graph._nodes:
+                self.graph.add_edge(
+                    source_id=ep_node_id,
+                    target_id=f_node_id,
+                    edge_type=EdgeType.HAS_FINDING
+                )
+                break
 
     def _add_technology(self, tech: TechnologyObservationSchema):
         """Registers a technology observation and links it to domain in graph."""

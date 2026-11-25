@@ -62,6 +62,8 @@ class JSStaticIntelligenceAnalyzer:
     # SourceMappingURL patterns
     SOURCEMAP_PATTERN = re.compile(r"""(?:/\*#\s*sourceMappingURL=([^\s*]+)\s*\*\/|//#\s*sourceMappingURL=([^\s]+))""")
 
+    MAX_JS_ANALYSIS_SIZE = 2 * 1024 * 1024  # 2 MB safety cap to prevent ReDoS / excessive memory
+
     @classmethod
     def analyze_js(cls, js_content: str, base_url: str, scope_gate: ScopeGate) -> JSAnalysisResult:
         """Performs static intelligence extraction on JavaScript source code.
@@ -77,6 +79,10 @@ class JSStaticIntelligenceAnalyzer:
         result = JSAnalysisResult()
         if not js_content or not isinstance(js_content, str):
             return result
+
+        # Bound content length to prevent resource exhaustion on massive or minified bundles
+        if len(js_content) > cls.MAX_JS_ANALYSIS_SIZE:
+            js_content = js_content[:cls.MAX_JS_ANALYSIS_SIZE]
 
         # 1. Extract API & Candidate Route Endpoints
         for pattern in cls.API_PATTERNS:

@@ -210,14 +210,15 @@ async def test_sec_req_09_sqli_boolean_resists_micro_fluctuations():
 
 # SEC-REQ-10: Probe HTTP method validation
 def test_sec_req_10_probe_method_validation():
-    """Unsupported probe methods like PATCH or DELETE must be rejected with 400."""
-    resp = client.post(
-        "/api/v1/active/probe",
-        json={
-            "url": "https://example.com/api",
-            "method": "DELETE",
-            "authorized": True,
-        },
-    )
-    assert resp.status_code == 400
-    assert "Unsupported HTTP probe method" in resp.json()["detail"]
+    """Unsupported probe methods like PATCH, DELETE, or PUT must be rejected with 400."""
+    for rejected_method in ["DELETE", "PATCH", "PUT", "CONNECT", "TRACE"]:
+        resp = client.post(
+            "/api/v1/active/probe",
+            json={
+                "url": "https://example.com/api",
+                "method": rejected_method,
+                "authorized": True,
+            },
+        )
+        assert resp.status_code == 400
+        assert "Unsupported HTTP probe method" in resp.json()["detail"]

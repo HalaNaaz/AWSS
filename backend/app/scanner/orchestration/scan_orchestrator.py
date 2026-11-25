@@ -171,6 +171,10 @@ class ScanOrchestrator:
                 respect_robots=self.respect_robots,
             )
 
+            # Register live discovery engine with scan registry for API and frontend telemetry
+            if self._recon_orchestrator.discovery_engine:
+                scan_registry.register_discovery_engine(self.scan_id, self._recon_orchestrator.discovery_engine)
+
             # Check cancellation before launching
             if self._is_cancelled:
                 self.status = ScanStatus.CANCELLED

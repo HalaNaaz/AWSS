@@ -71,9 +71,11 @@ def get_discovered_endpoints(
     scan_id: UUID,
     category: Optional[EndpointCategory] = None,
     method: Optional[str] = None,
-    min_confidence: Optional[float] = Query(default=0.0, ge=0.0, le=1.0)
+    min_confidence: Optional[float] = Query(default=0.0, ge=0.0, le=1.0),
+    limit: Optional[int] = Query(default=1000, ge=1, le=5000),
+    offset: Optional[int] = Query(default=0, ge=0)
 ) -> APIResponse[List[DiscoveredEndpointCreate]]:
-    """Retrieves discovered endpoints with optional filtering."""
+    """Retrieves discovered endpoints with optional filtering and bounded pagination."""
     engine = _get_or_reconstruct_engine(scan_id)
     endpoints = engine.endpoint_engine.get_endpoints()
 
@@ -84,6 +86,11 @@ def get_discovered_endpoints(
         endpoints = [ep for ep in endpoints if ep.method == method_upper]
     if min_confidence is not None:
         endpoints = [ep for ep in endpoints if ep.confidence >= min_confidence]
+
+    if offset:
+        endpoints = endpoints[offset:]
+    if limit:
+        endpoints = endpoints[:limit]
 
     return APIResponse(
         success=True,
@@ -96,9 +103,11 @@ def get_discovered_endpoints(
 def get_parameter_intelligence(
     scan_id: UUID,
     category: Optional[ParameterCategory] = None,
-    location: Optional[ParameterLocation] = None
+    location: Optional[ParameterLocation] = None,
+    limit: Optional[int] = Query(default=1000, ge=1, le=5000),
+    offset: Optional[int] = Query(default=0, ge=0)
 ) -> APIResponse[List[ParameterIntelligenceSchema]]:
-    """Retrieves discovered parameters with heuristic classification and risk signals."""
+    """Retrieves discovered parameters with heuristic classification, risk signals, and bounded pagination."""
     engine = _get_or_reconstruct_engine(scan_id)
     parameters = engine.parameter_engine.get_parameters()
 
@@ -106,6 +115,11 @@ def get_parameter_intelligence(
         parameters = [p for p in parameters if p.category == category]
     if location:
         parameters = [p for p in parameters if p.location == location]
+
+    if offset:
+        parameters = parameters[offset:]
+    if limit:
+        parameters = parameters[:limit]
 
     return APIResponse(
         success=True,
@@ -118,9 +132,11 @@ def get_parameter_intelligence(
 def get_api_inventory(
     scan_id: UUID,
     api_type: Optional[APIType] = None,
-    version: Optional[str] = None
+    version: Optional[str] = None,
+    limit: Optional[int] = Query(default=1000, ge=1, le=5000),
+    offset: Optional[int] = Query(default=0, ge=0)
 ) -> APIResponse[List[APIEndpointSchema]]:
-    """Retrieves API endpoints cataloged by type and version."""
+    """Retrieves API endpoints cataloged by type, version, and bounded pagination."""
     engine = _get_or_reconstruct_engine(scan_id)
     apis = engine.api_engine.get_api_endpoints()
 
@@ -128,6 +144,11 @@ def get_api_inventory(
         apis = [a for a in apis if a.api_type == api_type]
     if version:
         apis = [a for a in apis if a.version == version.lower()]
+
+    if offset:
+        apis = apis[offset:]
+    if limit:
+        apis = apis[:limit]
 
     return APIResponse(
         success=True,
@@ -139,14 +160,21 @@ def get_api_inventory(
 @router.get("/{scan_id}/assets", response_model=APIResponse[List[AssetIntelligenceSchema]])
 def get_asset_inventory(
     scan_id: UUID,
-    asset_type: Optional[AssetType] = None
+    asset_type: Optional[AssetType] = None,
+    limit: Optional[int] = Query(default=1000, ge=1, le=5000),
+    offset: Optional[int] = Query(default=0, ge=0)
 ) -> APIResponse[List[AssetIntelligenceSchema]]:
-    """Retrieves client-side assets cataloged during reconnaissance."""
+    """Retrieves client-side assets cataloged during reconnaissance with bounded pagination."""
     engine = _get_or_reconstruct_engine(scan_id)
     assets = engine.asset_engine.get_assets()
 
     if asset_type:
         assets = [a for a in assets if a.asset_type == asset_type]
+
+    if offset:
+        assets = assets[offset:]
+    if limit:
+        assets = assets[:limit]
 
     return APIResponse(
         success=True,
@@ -182,14 +210,21 @@ def get_attack_surface_graph(
 @router.get("/{scan_id}/prioritized", response_model=APIResponse[List[PrioritizedEndpointSchema]])
 def get_prioritized_endpoints(
     scan_id: UUID,
-    priority_level: Optional[PriorityLevel] = None
+    priority_level: Optional[PriorityLevel] = None,
+    limit: Optional[int] = Query(default=1000, ge=1, le=5000),
+    offset: Optional[int] = Query(default=0, ge=0)
 ) -> APIResponse[List[PrioritizedEndpointSchema]]:
-    """Retrieves evidence-prioritized endpoints ranked by exploration value."""
+    """Retrieves evidence-prioritized endpoints ranked by exploration value with bounded pagination."""
     engine = _get_or_reconstruct_engine(scan_id)
     prioritized = engine.get_prioritized_endpoints()
 
     if priority_level:
         prioritized = [p for p in prioritized if p.priority_level == priority_level]
+
+    if offset:
+        prioritized = prioritized[offset:]
+    if limit:
+        prioritized = prioritized[:limit]
 
     return APIResponse(
         success=True,
