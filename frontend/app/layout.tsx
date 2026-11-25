@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,12 +27,12 @@ export default function RootLayout({
               </div>
             </div>
             <nav className="flex items-center space-x-6 text-sm font-medium text-slate-400">
-              <a href="/" className="hover:text-cyan-300">Dashboard</a>
-              <a href="/attack-surface" className="text-cyan-400 hover:text-cyan-300">Attack Surface</a>
-              <a href="/scans" className="hover:text-slate-200">Scans</a>
-              <a href="/targets" className="hover:text-slate-200">Targets</a>
-              <a href="/findings" className="hover:text-slate-200">Findings</a>
-              <a href="/reports" className="hover:text-slate-200">Reports</a>
+              <Link href="/" className="hover:text-cyan-300">Dashboard</Link>
+              <Link href="/attack-surface" className="text-cyan-400 hover:text-cyan-300">Attack Surface</Link>
+              <Link href="/scans" className="hover:text-slate-200">Scans</Link>
+              <Link href="/targets" className="hover:text-slate-200">Targets</Link>
+              <Link href="/findings" className="hover:text-slate-200">Findings</Link>
+              <Link href="/reports" className="hover:text-slate-200">Reports</Link>
             </nav>
             <div className="flex items-center space-x-3">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800/60">

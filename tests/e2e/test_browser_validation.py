@@ -273,8 +273,10 @@ def run_e2e_browser_test():
         assert page.locator("tbody tr").count() > 0, "No scan rows found in /scans"
         print("  ✓ /scans page verified")
 
-        # /findings (Phase 5 AVIVE Findings Intelligence UI)
-        page.goto(f"{FRONTEND_URL}/findings", wait_until="networkidle")
+        # /findings (Phase 5 AVIVE Findings Intelligence UI - test navbar click, reload, and direct nav)
+        page.locator("nav >> text=Findings").click()
+        page.wait_for_url("**/findings", timeout=5000)
+        page.reload(wait_until="networkidle")
         assert page.locator("text=Vulnerability Findings & Evidence").count() > 0, "/findings title missing"
         assert page.locator("text=PHASE 5 · AVIVE").is_visible(), "PHASE 5 AVIVE badge missing on /findings"
         assert page.locator("button:has-text('ALL')").is_visible(), "Severity filter missing on /findings"
