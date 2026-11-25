@@ -2,10 +2,18 @@ from typing import List, Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, status, BackgroundTasks, Response
-from shared.schemas.common import APIResponse, PaginatedResponse, ScanStatus
+from shared.schemas.common import APIResponse, PaginatedResponse, ScanStatus, Severity
 from shared.schemas.scan import ScanJobCreate, ScanJobResponse
 from shared.schemas.finding import FindingResponse
+from shared.schemas.intelligence import (
+    ConfidenceLevel,
+    ContextualPriority,
+    RiskConfigUpdateRequest,
+    ScanIntelligenceSummarySchema,
+    ValidationState,
+)
 from shared.schemas.report import ReportFormat
+from backend.app.api.v1.endpoints.findings import filter_findings_collection
 from backend.app.scanner.orchestration.scan_orchestrator import (
     ScanOrchestrator,
     scan_registry,
@@ -41,6 +49,7 @@ async def create_scan_job(
         max_urls=job_in.max_urls,
         concurrency=job_in.concurrency,
         rate_limit_rps=job_in.rate_limit_rps,
+        asset_criticality=job_in.asset_criticality,
     )
     scan_registry.register_orchestrator(orchestrator)
 
@@ -89,13 +98,61 @@ async def cancel_scan_job(scan_id: UUID) -> APIResponse[ScanJobResponse]:
 
 
 @router.get("/{scan_id}/findings", response_model=APIResponse[List[FindingResponse]])
-async def get_scan_findings(scan_id: UUID) -> APIResponse[List[FindingResponse]]:
-    """Retrieves all security findings associated with a scan."""
+async def get_scan_findings(
+    scan_id: UUID,
+    severity: Optional[Severity] = Query(None),
+    confidence_level: Optional[ConfidenceLevel] = Query(None),
+    validation_state: Optional[ValidationState] = Query(None),
+    contextual_priority: Optional[ContextualPriority] = Query(None),
+    correlation_group_id: Optional[str] = Query(None),
+    include_duplicates: bool = Query(True),
+) -> APIResponse[List[FindingResponse]]:
+    """Retrieves all security findings associated with a scan with optional AVIVE intelligence filters."""
     job = scan_registry.get_job(scan_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
     findings = scan_registry.get_findings(scan_id)
-    return APIResponse(success=True, data=findings)
+    filtered = filter_findings_collection(
+        findings=findings,
+        severity=severity,
+        confidence_level=confidence_level,
+        validation_state=validation_state,
+        contextual_priority=contextual_priority,
+        correlation_group_id=correlation_group_id,
+        include_duplicates=include_duplicates,
+    )
+    return APIResponse(success=True, data=filtered)
+
+
+@router.get("/{scan_id}/intelligence", response_model=APIResponse[ScanIntelligenceSummarySchema])
+async def get_scan_intelligence(scan_id: UUID) -> APIResponse[ScanIntelligenceSummarySchema]:
+    """Retrieves Phase 5 AVIVE intelligence summary and correlation groups for a scan."""
+    job = scan_registry.get_job(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
+    summary = scan_registry.get_intelligence_summary(scan_id)
+    if not summary:
+        return APIResponse(success=True, data=ScanIntelligenceSummarySchema(scan_id=scan_id))
+    return APIResponse(success=True, data=summary)
+
+
+@router.post("/{scan_id}/risk-config", response_model=APIResponse[ScanIntelligenceSummarySchema])
+async def update_scan_risk_configuration(
+    scan_id: UUID,
+    payload: RiskConfigUpdateRequest,
+) -> APIResponse[ScanIntelligenceSummarySchema]:
+    """Updates analyst-configured asset criticality and recalculates contextual risk priorities."""
+    job = scan_registry.get_job(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
+    summary = scan_registry.update_scan_risk_config(scan_id, payload.asset_criticality)
+    if not summary:
+        raise HTTPException(status_code=404, detail=f"Completed intelligence report for scan '{scan_id}' not found.")
+    return APIResponse(
+        success=True,
+        message=f"Contextual risk recalculated with asset criticality {payload.asset_criticality}.",
+        data=summary,
+    )
 
 
 @router.get("/{scan_id}/report")

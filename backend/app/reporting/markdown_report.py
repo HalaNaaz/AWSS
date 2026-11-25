@@ -78,13 +78,34 @@ class MarkdownReportGenerator(BaseReportGenerator):
                 lines.append(f"- **HTTP Method:** `{f.endpoint.method}`" + (f" (Param: `{f.endpoint.parameter}`)" if f.endpoint.parameter else ""))
                 lines.append(f"- **Severity:** **{f.severity.value}** (CVSS: {f.cvss_score})")
                 lines.append(f"- **Classification:** CWE-{f.cwe_id.replace('CWE-', '')}" + (f" | {f.owasp_category}" if f.owasp_category else ""))
-                lines.append(f"- **Confidence:** {int(f.confidence * 100)}% | **Status:** `{f.status.value}`")
+                if f.intelligence:
+                    intel = f.intelligence
+                    lines.append(
+                        f"- **AVIVE Confidence:** **{intel.confidence_assessment.level.value}** ({int(intel.confidence_assessment.score * 100)}%) | "
+                        f"**Validation State:** `{intel.validation_state.value}` | "
+                        f"**Contextual Priority:** `{intel.contextual_risk.contextual_priority.value}` ({intel.contextual_risk.contextual_score}/100)"
+                    )
+                    if intel.correlation_group_id:
+                        lines.append(
+                            f"- **Correlation Group:** `{intel.correlation_group_id}` ({intel.correlation_relationship.value}"
+                            + (", Duplicate" if intel.is_duplicate else ", Primary")
+                            + ")"
+                        )
+                else:
+                    lines.append(f"- **Confidence:** {int(f.confidence * 100)}% | **Status:** `{f.status.value}`")
                 lines.append("")
                 lines.append(f"**Description:**  ")
                 lines.append(f"{f.description}")
                 lines.append("")
 
-                if f.remediation:
+                if f.intelligence and f.intelligence.remediation_intelligence:
+                    rem = f.intelligence.remediation_intelligence
+                    lines.append(f"**Root Cause:** {rem.root_cause}  ")
+                    lines.append(f"**Remediation Recommendation ({rem.remediation_priority.value}):** {rem.recommended_remediation}  ")
+                    lines.append(f"**Secure Implementation Guidance:** {rem.secure_implementation_guidance}  ")
+                    lines.append(f"**Verification Guidance:** {rem.verification_guidance}")
+                    lines.append("")
+                elif f.remediation:
                     lines.append(f"**Remediation Recommendation:**  ")
                     lines.append(f"{f.remediation}")
                     lines.append("")

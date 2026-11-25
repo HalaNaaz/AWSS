@@ -194,6 +194,51 @@ class EvidenceRecord(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     finding: Mapped["Finding"] = relationship("Finding", back_populates="evidence")
 
 
+class CorrelationGroupRecord(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "correlation_groups"
+
+    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    group_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    relationship_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    primary_finding_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    correlation_confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    shared_attributes: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
+
+
+class FindingIntelligenceRecord(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "finding_intelligence"
+
+    finding_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("findings.id", ondelete="CASCADE"), nullable=False, unique=True)
+    scan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scan_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    vulnerability_category: Mapped[str] = mapped_column(String(64), nullable=False)
+    confidence_level: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence_explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    validation_state: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    contextual_priority: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    contextual_score: Mapped[float] = mapped_column(Float, nullable=False)
+    correlation_group_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    duplicate_of: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    remediation_status: Mapped[str] = mapped_column(String(30), default="OPEN", nullable=False)
+    intelligence_payload: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class ValidationHistoryRecord(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "validation_history"
+
+    finding_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("findings.id", ondelete="CASCADE"), nullable=False, index=True)
+    from_state: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    to_state: Mapped[str] = mapped_column(String(40), nullable=False)
+    actor: Mapped[str] = mapped_column(String(100), nullable=False)
+    validation_method: Mapped[str] = mapped_column(String(100), nullable=False)
+    evidence_sha256: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
 class AuditLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "audit_logs"
 

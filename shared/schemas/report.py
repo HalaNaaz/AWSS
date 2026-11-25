@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from shared.schemas.common import Severity, FindingStatus, ScanProfile, ScanStatus
 from shared.schemas.finding import FindingResponse
 from shared.schemas.discovery import TechnologyObservationSchema, AttackSurfaceSummarySchema
+from shared.schemas.intelligence import ScanIntelligenceSummarySchema
 
 
 class ReportFormat(str, Enum):
@@ -61,5 +62,6 @@ class UnifiedScanReport(BaseModel):
     severity_summary: SeveritySummarySchema = Field(default_factory=SeveritySummarySchema)
     findings: List[FindingResponse] = []
     attack_surface_summary: Optional[AttackSurfaceSummarySchema] = None
+    intelligence_summary: Optional[ScanIntelligenceSummarySchema] = None
 
     model_config = ConfigDict(from_attributes=True)

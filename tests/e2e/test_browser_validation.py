@@ -273,11 +273,40 @@ def run_e2e_browser_test():
         assert page.locator("tbody tr").count() > 0, "No scan rows found in /scans"
         print("  ✓ /scans page verified")
 
-        # /findings
+        # /findings (Phase 5 AVIVE Findings Intelligence UI)
         page.goto(f"{FRONTEND_URL}/findings", wait_until="networkidle")
         assert page.locator("text=Vulnerability Findings & Evidence").count() > 0, "/findings title missing"
+        assert page.locator("text=PHASE 5 · AVIVE").is_visible(), "PHASE 5 AVIVE badge missing on /findings"
         assert page.locator("button:has-text('ALL')").is_visible(), "Severity filter missing on /findings"
-        print("  ✓ /findings page verified")
+        assert page.locator("select[aria-label='Confidence Filter']").is_visible(), "Confidence filter missing"
+        assert page.locator("select[aria-label='Validation Status Filter']").is_visible(), "Validation filter missing"
+        assert page.locator("select[aria-label='Vulnerability Category Filter']").is_visible(), "Category filter missing"
+        assert page.locator("select[aria-label='Correlation Group Filter']").is_visible(), "Correlation group filter missing"
+        assert page.locator("select[aria-label='Remediation Status Filter']").is_visible(), "Remediation filter missing"
+        assert page.get_by_text("Total Normalized", exact=True).is_visible(), "AVIVE Total Normalized counter missing"
+        assert page.get_by_text("Unique Primary", exact=True).is_visible(), "AVIVE Unique Primary counter missing"
+        assert page.get_by_text("Correlation Groups", exact=True).is_visible(), "AVIVE Correlation Groups counter missing"
+
+        # Verify finding card AVIVE pills and expand detail intelligence
+        page.wait_for_selector("button:has-text('View Details')", timeout=8000)
+        assert page.locator("text=CONTEXT PRIO:").count() > 0, "Contextual priority pill missing"
+        assert page.locator("text=CONF (").count() > 0, "Confidence pill missing"
+        page.locator("button:has-text('View Details')").first.click()
+        page.wait_for_selector("text=Explainable Confidence Assessment", timeout=5000)
+        assert page.locator("text=Contextual Risk Rationale").first.is_visible(), "Risk rationale missing"
+        assert page.locator("text=Remediation Intelligence").first.is_visible(), "Remediation intelligence missing"
+        assert page.locator("text=Safe Validation Workflow & Audit History").first.is_visible(), "Validation history panel missing"
+
+        # Exercise interactive remediation status update button against backend API
+        page.locator("button:has-text('IN_PROGRESS')").first.click()
+        page.wait_for_selector("text=Remediation status updated to IN_PROGRESS", timeout=5000)
+
+        # Exercise confidence filter dropdown
+        page.locator("select[aria-label='Confidence Filter']").select_option("HIGH")
+        page.wait_for_timeout(400)
+        page.locator("select[aria-label='Confidence Filter']").select_option("ALL")
+        page.wait_for_timeout(400)
+        print("  ✓ /findings Phase 5 AVIVE intelligence UI, filters, and validation workflow verified")
 
         # /reports
         page.goto(f"{FRONTEND_URL}/reports", wait_until="networkidle")

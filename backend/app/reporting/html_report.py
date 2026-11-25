@@ -60,7 +60,17 @@ class HTMLReportGenerator(BaseReportGenerator):
                     """
 
                 remediation_block = ""
-                if f.remediation:
+                if f.intelligence and f.intelligence.remediation_intelligence:
+                    rem = f.intelligence.remediation_intelligence
+                    remediation_block = f"""
+                    <div class="remediation-box">
+                        <h4>Remediation Intelligence ({esc(rem.remediation_priority.value)})</h4>
+                        <p><strong>Root Cause:</strong> {esc(rem.root_cause)}</p>
+                        <p style="margin-top: 6px;"><strong>Recommended Fix:</strong> {esc(rem.recommended_remediation)}</p>
+                        <p style="margin-top: 6px;"><strong>Verification:</strong> {esc(rem.verification_guidance)}</p>
+                    </div>
+                    """
+                elif f.remediation:
                     remediation_block = f"""
                     <div class="remediation-box">
                         <h4>Remediation Guidance</h4>
@@ -69,6 +79,13 @@ class HTMLReportGenerator(BaseReportGenerator):
                     """
 
                 param_info = f" <span class='meta-tag'>Param: {esc(f.endpoint.parameter)}</span>" if f.endpoint.parameter else ""
+                avive_tags = ""
+                if f.intelligence:
+                    avive_tags = (
+                        f" <span class='meta-tag'><strong>Conf Level:</strong> {esc(f.intelligence.confidence_assessment.level.value)}</span>"
+                        f" <span class='meta-tag'><strong>Validation:</strong> {esc(f.intelligence.validation_state.value)}</span>"
+                        f" <span class='meta-tag'><strong>Context Priority:</strong> {esc(f.intelligence.contextual_risk.contextual_priority.value)}</span>"
+                    )
 
                 findings_html.append(f"""
                 <div class="finding-card">
@@ -86,6 +103,7 @@ class HTMLReportGenerator(BaseReportGenerator):
                         <span class="meta-tag"><strong>CWE:</strong> {esc(f.cwe_id)}</span>
                         <span class="meta-tag"><strong>Status:</strong> {esc(f.status.value)}</span>
                         <span class="meta-tag"><strong>Confidence:</strong> {int(f.confidence * 100)}%</span>
+                        {avive_tags}
                     </div>
                     <div class="finding-body">
                         <p>{esc(f.description)}</p>

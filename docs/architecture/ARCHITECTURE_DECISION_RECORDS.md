@@ -32,3 +32,27 @@
 * **Context:** Evidence collected during scans may contain customer credentials or sensitive tokens, yet forensic admissibility requires tamper-evident integrity.
 * **Decision:** Evidence strings are redacted in memory before database persistence (masking Authorization headers, cookies, and passwords). Every request/response pair is sealed with a cryptographic SHA-256 hash.
 * **Consequences:** Complies with privacy invariants (zero plaintext credentials in database) while maintaining audit integrity.
+
+---
+
+### ADR-005: AVIVE Traceable Correlation & Non-Destructive Primary Selection
+* **Status:** Approved
+* **Context:** Running passive and active analyzers across multi-route web applications generates overlapping observations (e.g., passive cookie/header flaws across many URLs, or passive + active checks on the same parameter). Silently dropping duplicates destroys forensic evidence.
+* **Decision:** The Phase 5 Correlation Engine preserves all original normalized findings and links them via `CorrelationGroup` records distinguishing `DUPLICATE`, `RELATED`, `POTENTIALLY_CORRELATED`, and `INDEPENDENT` relationships. A primary finding is deterministically selected while duplicate records retain `is_duplicate`, `duplicate_of`, and `correlation_group_id` traceability.
+* **Consequences:** Analysts get deduplicated primary triage queues without losing underlying module evidence or auditability.
+
+---
+
+### ADR-006: Explainable Confidence Separation & Controlled Validation Lifecycle
+* **Status:** Approved
+* **Context:** Scalar confidence numbers and conflating severity with confidence lead to false-positive escalation (e.g., treating a speculative HIGH-severity alert as confirmed).
+* **Decision:** Confidence is computed transparently from structured evidence quality factors (`detection_method_reliability`, `reproducibility`, `evidence_completeness`, `signal_quality`, `response_consistency`, `contradictory_evidence`, `corroboration`) yielding `LOW`/`MEDIUM`/`HIGH` plus explicit rationales. HIGH/CRITICAL findings with LOW confidence are prevented from auto-validation and flagged `NEEDS_REVIEW`. State transitions follow an audited finite-state machine (`SafeValidationWorkflow`).
+* **Consequences:** Prevents false-positive elevation and ensures analyst-auditable validation history.
+
+---
+
+### ADR-007: Contextual Risk Assessment Independent from CVSS
+* **Status:** Approved
+* **Context:** CVSS measures intrinsic technical vulnerability characteristics, whereas remediation urgency depends on attack surface context (authentication exposure, parameter type, related findings, technology stack, and configured asset criticality).
+* **Decision:** `ContextualRiskEngine` calculates an explainable contextual priority (`CRITICAL`..`INFO`, `0–100`) alongside—never overwriting—`cvss_score` and `severity`. Missing contextual inputs such as unconfigured asset criticality are explicitly declared in `data_limitations` rather than fabricated.
+* **Consequences:** Preserves standards compliance for CVSS reporting while enabling context-driven prioritization.

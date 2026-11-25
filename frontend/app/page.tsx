@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { fetchApi } from "../services/api-client";
+import type { Finding } from "../types/models";
 
 interface Target {
   id: string;
@@ -25,21 +26,6 @@ interface ScanJob {
   urls_crawled: number;
   findings_count: number;
   created_at: string;
-}
-
-interface Finding {
-  id: string;
-  scan_id: string;
-  title: string;
-  description?: string;
-  cwe_id: string;
-  owasp_category?: string;
-  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFORMATIONAL";
-  cvss_score: number;
-  confidence: number;
-  remediation?: string;
-  endpoint?: { url: string; method: string; parameter?: string };
-  evidence?: { request_raw?: string; response_raw?: string; sha256_hash?: string };
 }
 
 export default function OverviewDashboard() {
@@ -292,15 +278,14 @@ export default function OverviewDashboard() {
                     <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
                       <td className="p-3">
                         <span
-                          className={`px-2 py-0.5 rounded text-xs font-mono font-semibold ${
-                            s.status === "COMPLETED"
-                              ? "bg-emerald-950 text-emerald-400 border border-emerald-800/60"
-                              : s.status === "RUNNING"
+                          className={`px-2 py-0.5 rounded text-xs font-mono font-semibold ${s.status === "COMPLETED"
+                            ? "bg-emerald-950 text-emerald-400 border border-emerald-800/60"
+                            : s.status === "RUNNING"
                               ? "bg-cyan-950 text-cyan-400 border border-cyan-800/60 animate-pulse"
                               : s.status === "CANCELLED"
-                              ? "bg-slate-800 text-slate-400 border border-slate-700"
-                              : "bg-yellow-950 text-yellow-400 border border-yellow-800/60"
-                          }`}
+                                ? "bg-slate-800 text-slate-400 border border-slate-700"
+                                : "bg-yellow-950 text-yellow-400 border border-yellow-800/60"
+                            }`}
                         >
                           {s.status}
                         </span>
@@ -628,11 +613,10 @@ export default function OverviewDashboard() {
                 <button
                   key={sev}
                   onClick={() => setSeverityFilter(sev)}
-                  className={`px-3 py-1 rounded-md transition-colors ${
-                    severityFilter === sev
-                      ? "bg-cyan-600 text-white font-semibold"
-                      : "bg-slate-800 text-slate-400 hover:text-slate-200"
-                  }`}
+                  className={`px-3 py-1 rounded-md transition-colors ${severityFilter === sev
+                    ? "bg-cyan-600 text-white font-semibold"
+                    : "bg-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
                 >
                   {sev}
                 </button>
@@ -654,20 +638,32 @@ export default function OverviewDashboard() {
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                                f.severity === "CRITICAL"
-                                  ? "bg-red-950 text-red-400 border border-red-800"
-                                  : f.severity === "HIGH"
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${f.severity === "CRITICAL"
+                                ? "bg-red-950 text-red-400 border border-red-800"
+                                : f.severity === "HIGH"
                                   ? "bg-orange-950 text-orange-400 border border-orange-800"
                                   : f.severity === "MEDIUM"
-                                  ? "bg-amber-950 text-amber-400 border border-amber-800"
-                                  : "bg-blue-950 text-blue-400 border border-blue-800"
-                              }`}
+                                    ? "bg-amber-950 text-amber-400 border border-amber-800"
+                                    : "bg-blue-950 text-blue-400 border border-blue-800"
+                                }`}
                             >
                               {f.severity}
                             </span>
                             <span className="text-xs font-mono text-slate-400">{f.cwe_id}</span>
                             <span className="text-xs text-slate-500">CVSS {f.cvss_score}</span>
+                            {f.intelligence && (
+                              <>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-cyan-300 border border-slate-700">
+                                  {f.intelligence.confidence_assessment.level} CONF ({Math.round(f.confidence * 100)}%)
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-emerald-300 border border-slate-700">
+                                  {f.intelligence.validation_state}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-950/60 text-purple-300 border border-purple-800/60">
+                                  PRIO: {f.intelligence.contextual_risk.contextual_priority}
+                                </span>
+                              </>
+                            )}
                           </div>
                           <h4 className="text-sm font-semibold text-white">{f.title}</h4>
                         </div>
@@ -709,9 +705,9 @@ export default function OverviewDashboard() {
                                   SHA-256: {f.evidence.sha256_hash}
                                 </p>
                               )}
-                              {f.evidence.response_raw && (
+                              {f.evidence.response && (
                                 <pre className="p-2 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono text-slate-300 max-h-40 overflow-y-auto whitespace-pre-wrap">
-                                  {f.evidence.response_raw}
+                                  {f.evidence.response}
                                 </pre>
                               )}
                             </div>

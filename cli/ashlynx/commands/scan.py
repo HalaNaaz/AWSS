@@ -32,6 +32,8 @@ def run_scan(
     max_urls: Optional[int] = typer.Option(None, "--max-urls", "-u", help="Maximum URLs to crawl override"),
     concurrency: Optional[int] = typer.Option(None, "--concurrency", "-c", help="Concurrency limit override"),
     rate_limit: Optional[float] = typer.Option(None, "--rate-limit", "-r", help="Requests per second rate limit override"),
+    asset_criticality: Optional[float] = typer.Option(None, "--asset-criticality", help="Target asset business criticality (0.5-5.0) for contextual risk scoring"),
+    hide_duplicates: bool = typer.Option(False, "--hide-duplicates", help="Hide correlated duplicate findings in table view"),
     fail_on_findings: bool = typer.Option(False, "--fail-on-findings", help="Exit code 1 if critical or high findings are detected (CI gate)"),
 ):
     """Executes a target assessment through Ashlynx scanner."""
@@ -70,6 +72,7 @@ def run_scan(
         rate_limit_rps=rate_limit,
         request_budget=request_budget,
         enabled_modules=enabled_modules_set,
+        asset_criticality=asset_criticality,
     )
     scan_registry.register_orchestrator(orchestrator)
 
@@ -108,9 +111,15 @@ def run_scan(
             findings_count=len(report.findings),
         )
         TerminalFormatter.render_severity_summary(report.severity_summary)
+        if report.intelligence_summary:
+            TerminalFormatter.render_intelligence_summary(report.intelligence_summary)
         if report.technologies:
             TerminalFormatter.render_technology_table(report.technologies)
-        TerminalFormatter.render_findings_table(report.findings)
+        display_findings = [
+            f for f in report.findings
+            if not (hide_duplicates and f.intelligence and f.intelligence.is_duplicate)
+        ]
+        TerminalFormatter.render_findings_table(display_findings)
     elif fmt_lower in ("json", "html", "markdown", "sarif"):
         # Map to ReportFormat
         format_map = {

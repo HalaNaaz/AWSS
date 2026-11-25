@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 
 from backend.app.scanner.passive.engine import PassiveAnalysisEngine
 from backend.app.scanner.passive.models import HTTPResponseContext, PassiveFinding
-from backend.app.api.v1.endpoints.findings import _MOCK_FINDINGS
+from backend.app.scanner.intelligence.engine import VulnerabilityIntelligenceEngine
+from backend.app.scanner.orchestration.scan_orchestrator import scan_registry
 from shared.schemas.common import APIResponse, PaginatedResponse
 from shared.schemas.finding import FindingResponse
 
@@ -66,17 +67,15 @@ async def analyze_http_response(req: PassiveAnalyzeRequest) -> APIResponse[List[
     )
 
     findings = _engine.analyze_response(ctx)
-    converted: List[FindingResponse] = []
-    for f in findings:
-        resp = f.to_finding_response(scan_id)
-        converted.append(resp)
-        # Store in global findings store for retrieval via /findings
-        _MOCK_FINDINGS[resp.id] = resp
+    converted_raw = [f.to_finding_response(scan_id) for f in findings]
+    enriched, _ = VulnerabilityIntelligenceEngine.process_findings(converted_raw, scan_id=scan_id)
+    for resp in enriched:
+        scan_registry.store_standalone_finding(resp)
 
     return APIResponse(
         success=True,
-        message=f"Passive analysis completed. Generated {len(converted)} security findings.",
-        data=converted
+        message=f"Passive analysis completed. Generated {len(enriched)} security findings.",
+        data=enriched
     )
 
 
@@ -87,7 +86,7 @@ async def get_passive_findings_by_scan(
     page_size: int = Query(20, ge=1, le=100)
 ) -> PaginatedResponse[FindingResponse]:
     """Retrieves paginated passive findings associated with a scan ID."""
-    findings_for_scan = [f for f in _MOCK_FINDINGS.values() if f.scan_id == scan_id]
+    findings_for_scan = scan_registry.get_findings(scan_id)
     total = len(findings_for_scan)
     start = (page - 1) * page_size
     items = findings_for_scan[start : start + page_size]

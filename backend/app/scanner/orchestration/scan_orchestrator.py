@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 import time
-from typing import Optional, List, Dict, Tuple, Any
+from typing import Optional, List, Dict, Tuple, Any, Set
 from uuid import UUID, uuid4
 
 from backend.app.core.logging import logger
@@ -9,6 +9,7 @@ from backend.app.scanner.reconnaissance.orchestrator import ReconOrchestrator
 from backend.app.scanner.crawler.client import AsyncHTTPClient
 from backend.app.scanner.active import ActiveDetectionEngine, ActiveTarget
 from backend.app.scanner.discovery.engine import AttackSurfaceIntelligenceEngine
+from backend.app.scanner.intelligence.engine import VulnerabilityIntelligenceEngine
 from shared.schemas.common import ScanProfile, ScanStatus, ScopeRuleType
 from shared.schemas.discovery import (
     ReconSummaryResponse,
@@ -20,6 +21,7 @@ from shared.schemas.discovery import (
     AssetIntelligenceSchema
 )
 from shared.schemas.finding import FindingResponse
+from shared.schemas.intelligence import ScanIntelligenceSummarySchema
 from shared.schemas.report import UnifiedScanReport, SeveritySummarySchema
 from shared.schemas.scan import SCAN_PROFILE_PRESETS, ScanJobResponse, ScanJobCreate
 
@@ -47,6 +49,7 @@ class ScanOrchestrator:
         target_id: Optional[UUID] = None,
         request_budget: Optional[int] = None,
         enabled_modules: Optional[Set[str]] = None,
+        asset_criticality: Optional[float] = None,
     ):
         self.target_url = target_url.strip()
         self.scan_id = scan_id or uuid4()
@@ -56,6 +59,7 @@ class ScanOrchestrator:
         self.respect_robots = respect_robots
         self.analyze_javascript = analyze_javascript
         self.enabled_modules = enabled_modules
+        self.asset_criticality = asset_criticality
 
         # Resolve limits from presets with explicit override precedence
         preset = SCAN_PROFILE_PRESETS.get(profile, SCAN_PROFILE_PRESETS[ScanProfile.QUICK_ASSESSMENT])
@@ -76,6 +80,7 @@ class ScanOrchestrator:
         self._recon_orchestrator: Optional[ReconOrchestrator] = None
         self._active_engine: Optional[ActiveDetectionEngine] = None
         self._recon_summary: Optional[ReconSummaryResponse] = None
+        self._intelligence_summary: Optional[ScanIntelligenceSummarySchema] = None
         self._report: Optional[UnifiedScanReport] = None
         self._is_cancelled = False
 
@@ -235,17 +240,22 @@ class ScanOrchestrator:
                             severity=af.severity.value
                         )
 
-                # Deduplicate by (rule_id, url, parameter)
-                unique_findings_map = {}
-                for f in combined:
-                    param = f.endpoint.parameter if f.endpoint else None
-                    url = f.endpoint.url if f.endpoint else ""
-                    key = (f.title, url, param)
-                    if key not in unique_findings_map:
-                        unique_findings_map[key] = f
+                recon_summary.findings = combined
+                recon_summary.findings_count = len(combined)
 
-                recon_summary.findings = list(unique_findings_map.values())
-                recon_summary.findings_count = len(recon_summary.findings)
+            # Phase 5: Execute AVIVE (Normalization, Correlation, Confidence, Validation, Risk, Remediation)
+            raw_combined = list(recon_summary.findings or [])
+            enriched_findings, intel_summary = VulnerabilityIntelligenceEngine.process_findings(
+                raw_findings=raw_combined,
+                scan_id=self.scan_id,
+                target_id=self.target_id,
+                technologies=recon_summary.technologies,
+                discovery_engine=self.discovery_engine,
+                asset_criticality=self.asset_criticality,
+            )
+            recon_summary.findings = enriched_findings
+            recon_summary.findings_count = len(enriched_findings)
+            self._intelligence_summary = intel_summary
 
             self.duration_seconds = round(time.perf_counter() - start_time, 2)
             self.completed_at = datetime.now(timezone.utc)
@@ -295,7 +305,8 @@ class ScanOrchestrator:
             technologies=recon_summary.technologies,
             severity_summary=severity_summary,
             findings=findings,
-            attack_surface_summary=self.get_attack_surface_summary()
+            attack_surface_summary=self.get_attack_surface_summary(),
+            intelligence_summary=self._intelligence_summary,
         )
 
     def _build_cancelled_report(self) -> UnifiedScanReport:
@@ -343,6 +354,7 @@ class ScanLifecycleRegistry:
         self._orchestrators: Dict[UUID, ScanOrchestrator] = {}
         self._reports: Dict[UUID, UnifiedScanReport] = {}
         self._discovery_engines: Dict[UUID, AttackSurfaceIntelligenceEngine] = {}
+        self._standalone_findings: Dict[UUID, FindingResponse] = {}
 
     def register_job(self, job: ScanJobResponse) -> None:
         self._jobs[job.id] = job
@@ -394,11 +406,77 @@ class ScanLifecycleRegistry:
             return self._orchestrators[scan_id]._report
         return None
 
+    def store_standalone_finding(self, finding: FindingResponse) -> None:
+        self._standalone_findings[finding.id] = finding
+
     def get_findings(self, scan_id: UUID) -> List[FindingResponse]:
         report = self.get_report(scan_id)
         if report:
             return report.findings
-        return []
+        return [f for f in self._standalone_findings.values() if f.scan_id == scan_id]
+
+    def get_all_findings(self) -> List[FindingResponse]:
+        """Returns all findings across all tracked scan reports without duplicates across orchestrator/report stores."""
+        seen_scans: Set[UUID] = set()
+        seen_ids: Set[UUID] = set()
+        results: List[FindingResponse] = []
+        for scan_id, report in self._reports.items():
+            seen_scans.add(scan_id)
+            for f in report.findings:
+                seen_ids.add(f.id)
+                results.append(f)
+        for scan_id, orch in self._orchestrators.items():
+            if scan_id not in seen_scans and orch._report:
+                for f in orch._report.findings:
+                    seen_ids.add(f.id)
+                    results.append(f)
+        for f in self._standalone_findings.values():
+            if f.id not in seen_ids:
+                results.append(f)
+        return results
+
+    def get_finding_by_id(self, finding_id: UUID) -> Optional[Tuple[FindingResponse, Optional[UnifiedScanReport]]]:
+        """Looks up a specific finding across all registered scans."""
+        seen_scans: Set[UUID] = set()
+        for scan_id, report in self._reports.items():
+            seen_scans.add(scan_id)
+            for f in report.findings:
+                if f.id == finding_id:
+                    return (f, report)
+        for scan_id, orch in self._orchestrators.items():
+            if scan_id not in seen_scans and orch._report:
+                for f in orch._report.findings:
+                    if f.id == finding_id:
+                        return (f, orch._report)
+        if finding_id in self._standalone_findings:
+            return (self._standalone_findings[finding_id], None)
+        return None
+
+    def get_intelligence_summary(self, scan_id: UUID) -> Optional[ScanIntelligenceSummarySchema]:
+        report = self.get_report(scan_id)
+        if report and report.intelligence_summary:
+            return report.intelligence_summary
+        if scan_id in self._orchestrators and self._orchestrators[scan_id]._intelligence_summary:
+            return self._orchestrators[scan_id]._intelligence_summary
+        return None
+
+    def update_scan_risk_config(self, scan_id: UUID, asset_criticality: float) -> Optional[ScanIntelligenceSummarySchema]:
+        """Recalculates contextual risk for a completed scan using updated analyst asset criticality."""
+        report = self.get_report(scan_id)
+        if not report:
+            return None
+        if scan_id in self._orchestrators:
+            self._orchestrators[scan_id].asset_criticality = asset_criticality
+        disc_eng = self.get_discovery_engine(scan_id)
+        updated_findings, risk_breakdown = VulnerabilityIntelligenceEngine.recalculate_risk_for_findings(
+            findings=report.findings,
+            asset_criticality=asset_criticality,
+            discovery_engine=disc_eng,
+        )
+        report.findings = updated_findings
+        if report.intelligence_summary:
+            report.intelligence_summary.contextual_priority_breakdown = risk_breakdown
+        return report.intelligence_summary
 
     def cancel_scan(self, scan_id: UUID) -> bool:
         if scan_id in self._orchestrators:
@@ -416,6 +494,7 @@ class ScanLifecycleRegistry:
         self._orchestrators.clear()
         self._reports.clear()
         self._discovery_engines.clear()
+        self._standalone_findings.clear()
 
 
 # Global singleton registry instance

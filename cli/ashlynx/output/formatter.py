@@ -6,6 +6,7 @@ from rich.text import Text
 from shared.schemas.report import SeveritySummarySchema
 from shared.schemas.discovery import TechnologyObservationSchema
 from shared.schemas.finding import FindingResponse
+from shared.schemas.intelligence import ScanIntelligenceSummarySchema
 
 console = Console()
 
@@ -96,11 +97,13 @@ class TerminalFormatter:
             return
 
         table = Table(title="Detailed Security Findings", border_style="bright_black")
-        table.add_column("Severity", style="bold", width=14)
+        table.add_column("Severity", style="bold", width=13)
+        table.add_column("Priority", style="bold", width=10)
         table.add_column("Vulnerability Title", style="white")
-        table.add_column("CWE", style="dim", width=10)
-        table.add_column("Confidence", justify="right", width=10)
-        table.add_column("Status", width=12)
+        table.add_column("CWE", style="dim", width=9)
+        table.add_column("Confidence", justify="right", width=12)
+        table.add_column("Validation", width=16)
+        table.add_column("Correlation", width=16)
         table.add_column("Endpoint", style="cyan")
 
         for item in findings:
@@ -108,8 +111,20 @@ class TerminalFormatter:
                 sev = item.severity.value
                 title = item.title
                 cwe = item.cwe_id or "CWE-Unknown"
-                conf = f"{item.confidence:.2f}"
-                stat = item.status.value
+                if item.intelligence:
+                    conf = f"{item.intelligence.confidence_assessment.level.value} ({int(item.confidence * 100)}%)"
+                    stat = item.intelligence.validation_state.value
+                    priority = item.intelligence.contextual_risk.contextual_priority.value
+                    if item.intelligence.correlation_group_id:
+                        role = "DUP" if item.intelligence.is_duplicate else "PRI"
+                        corr = f"{role}:{item.intelligence.correlation_group_id[:10]}"
+                    else:
+                        corr = "INDEP"
+                else:
+                    conf = f"{item.confidence:.2f}"
+                    stat = item.status.value
+                    priority = sev
+                    corr = "-"
                 endpoint = item.endpoint.url if item.endpoint else "-"
             else:
                 sev = item.get("severity", "MEDIUM")
@@ -118,16 +133,36 @@ class TerminalFormatter:
                 conf_val = item.get("confidence", 0.7)
                 conf = f"{conf_val:.2f}" if isinstance(conf_val, (int, float)) else str(conf_val)
                 stat = item.get("status", "SUSPECTED")
+                priority = sev
+                corr = "-"
                 endpoint = item.get("endpoint", {}).get("url", "-") if isinstance(item.get("endpoint"), dict) else "-"
 
             style = SEVERITY_STYLES.get(sev, "white")
             table.add_row(
                 f"[{style}]{sev}[/{style}]",
+                priority,
                 title,
                 cwe,
                 conf,
                 stat,
+                corr,
                 endpoint
             )
 
+        console.print(table)
+
+    @staticmethod
+    def render_intelligence_summary(intel: ScanIntelligenceSummarySchema) -> None:
+        table = Table(title="AVIVE Vulnerability Intelligence Summary", border_style="cyan")
+        table.add_column("Metric", style="bold white")
+        table.add_column("Value", justify="right", style="cyan")
+
+        table.add_row("Total Normalized Findings", str(intel.total_raw_findings))
+        table.add_row("Unique Primary Findings", str(intel.unique_primary_findings))
+        table.add_row("Duplicate Findings Linked", str(intel.duplicate_findings_count))
+        table.add_row("Correlation Groups", str(intel.correlation_groups_count))
+        table.add_row("Manual Review Required", str(intel.manual_review_required_count))
+        table.add_row("Confidence Breakdown", str(intel.confidence_breakdown))
+        table.add_row("Validation Breakdown", str(intel.validation_state_breakdown))
+        table.add_row("Contextual Priority Breakdown", str(intel.contextual_priority_breakdown))
         console.print(table)

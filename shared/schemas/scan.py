@@ -85,6 +85,7 @@ class ScanJobBase(BaseModel):
 class ScanJobCreate(ScanJobBase):
     target_id: Optional[UUID] = None
     target_url: Optional[str] = None
+    asset_criticality: Optional[float] = Field(default=None, ge=0.5, le=5.0)
     parameters: Optional[Dict[str, Any]] = None
 
 
@@ -92,6 +93,7 @@ class ScanJobResponse(ScanJobBase):
     id: UUID
     target_id: Optional[UUID] = None
     target_url: Optional[str] = None
+    asset_criticality: Optional[float] = None
     status: ScanStatus = ScanStatus.QUEUED
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None

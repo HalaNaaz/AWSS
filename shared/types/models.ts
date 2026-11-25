@@ -125,6 +125,7 @@ export interface Evidence {
 export interface Finding {
   id: string;
   scan_id: string;
+  target_id?: string;
   title: string;
   description?: string;
   cwe_id: string;
@@ -138,6 +139,7 @@ export interface Finding {
   curl_reproduction?: string;
   endpoint: Endpoint;
   evidence?: Evidence;
+  intelligence?: FindingIntelligence;
   created_at: string;
   updated_at?: string;
 }
@@ -390,4 +392,167 @@ export interface AttackSurfaceSummary {
   parameter_categories_breakdown: Record<string, number>;
   api_types_breakdown: Record<string, number>;
   asset_types_breakdown: Record<string, number>;
+}
+
+// ==========================================
+// Phase 5: Vulnerability Intelligence (AVIVE)
+// ==========================================
+
+export type ConfidenceLevel = "LOW" | "MEDIUM" | "HIGH";
+
+export type CorrelationRelationship =
+  | "DUPLICATE"
+  | "RELATED"
+  | "POTENTIALLY_CORRELATED"
+  | "INDEPENDENT";
+
+export type ValidationState =
+  | "DETECTED"
+  | "NEEDS_REVIEW"
+  | "VALIDATION_PENDING"
+  | "VALIDATED"
+  | "INCONCLUSIVE"
+  | "FALSE_POSITIVE"
+  | "ACCEPTED_RISK"
+  | "RESOLVED";
+
+export type ContextualPriority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+
+export type RemediationPriority =
+  | "P0_IMMEDIATE"
+  | "P1_URGENT"
+  | "P2_SCHEDULED"
+  | "P3_HARDENING";
+
+export type RemediationStatus =
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "FIXED"
+  | "VERIFIED_FIXED"
+  | "WONT_FIX";
+
+export interface EvidenceReference {
+  evidence_id: string;
+  sha256_hash: string;
+  probe_type: string;
+  source_module: string;
+  summary?: string;
+  timestamp?: string;
+}
+
+export interface ConfidenceFactor {
+  factor: string;
+  score: number;
+  weight: number;
+  status: "POSITIVE" | "NEUTRAL" | "NEGATIVE" | "MISSING";
+  detail: string;
+}
+
+export interface ConfidenceAssessment {
+  level: ConfidenceLevel;
+  score: number;
+  factors: ConfidenceFactor[];
+  contributing_evidence: string[];
+  missing_evidence: string[];
+  contradictory_signals: string[];
+  corroborated: boolean;
+  needs_manual_review: boolean;
+  explanation: string;
+}
+
+export interface ValidationHistoryEntry {
+  from_state?: ValidationState;
+  to_state: ValidationState;
+  timestamp: string;
+  actor: string;
+  validation_method: string;
+  supporting_evidence?: string;
+  evidence_sha256?: string;
+  notes?: string;
+}
+
+export interface RiskFactor {
+  factor: string;
+  weight: number;
+  raw_value: string;
+  contribution: number;
+  rationale: string;
+}
+
+export interface ContextualRiskAssessment {
+  contextual_priority: ContextualPriority;
+  contextual_score: number;
+  severity_baseline: Severity;
+  cvss_baseline: number;
+  confidence_level: ConfidenceLevel;
+  asset_criticality_used?: number;
+  risk_factors: RiskFactor[];
+  priority_rationale: string;
+  data_limitations: string[];
+}
+
+export interface RemediationIntelligence {
+  root_cause: string;
+  why_it_matters: string;
+  affected_component: string;
+  recommended_remediation: string;
+  secure_implementation_guidance: string;
+  verification_guidance: string;
+  cwe_references: string[];
+  owasp_references: string[];
+  remediation_priority: RemediationPriority;
+  remediation_status: RemediationStatus;
+  prerequisites: string[];
+}
+
+export interface CorrelationGroup {
+  group_id: string;
+  relationship_type: CorrelationRelationship;
+  primary_finding_id: string;
+  member_finding_ids: string[];
+  correlation_confidence: number;
+  explanation: string;
+  cwe_id?: string;
+  shared_attributes: string[];
+}
+
+export interface FindingIntelligence {
+  fingerprint: string;
+  vulnerability_category: string;
+  target_id?: string;
+  normalized_endpoint: string;
+  http_method: string;
+  parameter?: string;
+  asset_relationships: string[];
+  technology_relationships: string[];
+  detection_source: string;
+  detection_method: string;
+  evidence_references: EvidenceReference[];
+  correlation_group_id?: string;
+  correlation_relationship: CorrelationRelationship;
+  correlation_confidence: number;
+  correlation_explanation?: string;
+  is_primary: boolean;
+  is_duplicate: boolean;
+  duplicate_of?: string;
+  related_finding_ids: string[];
+  confidence_assessment: ConfidenceAssessment;
+  validation_state: ValidationState;
+  validation_history: ValidationHistoryEntry[];
+  contextual_risk: ContextualRiskAssessment;
+  remediation_intelligence: RemediationIntelligence;
+  raw_module_metadata: Record<string, any>;
+}
+
+export interface ScanIntelligenceSummary {
+  scan_id: string;
+  total_raw_findings: number;
+  unique_primary_findings: number;
+  duplicate_findings_count: number;
+  correlation_groups_count: number;
+  confidence_breakdown: Record<string, number>;
+  validation_state_breakdown: Record<string, number>;
+  contextual_priority_breakdown: Record<string, number>;
+  manual_review_required_count: number;
+  correlation_groups: CorrelationGroup[];
 }

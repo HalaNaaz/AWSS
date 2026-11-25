@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any, List
 from uuid import UUID
 from pydantic import BaseModel, Field
 from shared.schemas.common import Severity, FindingStatus
+from shared.schemas.intelligence import FindingIntelligenceSchema
 
 
 class EndpointSchema(BaseModel):
@@ -43,8 +44,10 @@ class FindingCreate(FindingBase):
 class FindingResponse(FindingBase):
     id: UUID
     scan_id: UUID
+    target_id: Optional[UUID] = None
     endpoint: EndpointSchema
     evidence: Optional[EvidenceSchema] = None
+    intelligence: Optional[FindingIntelligenceSchema] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
