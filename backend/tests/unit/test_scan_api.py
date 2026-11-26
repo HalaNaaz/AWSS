@@ -107,6 +107,15 @@ def test_create_and_get_scan_job_sync(client: TestClient, mock_recon):
         assert report_md_resp.status_code == 200
         assert "# Ashlynx WebSec Scanner" in report_md_resp.text
 
+        # Retrieve report via /reports/{id}?format=sarif (and attachment download)
+        report_sarif_resp = client.get(f"/api/v1/reports/{scan_id}?format=sarif&download=true")
+        assert report_sarif_resp.status_code == 200
+        assert "application/sarif+json" in report_sarif_resp.headers["content-type"]
+        assert f"ashlynx_report_{scan_id}.sarif" in report_sarif_resp.headers["content-disposition"]
+        sarif_payload = report_sarif_resp.json()
+        assert sarif_payload["version"] == "2.1.0"
+        assert sarif_payload["runs"][0]["results"][0]["level"] == "error"
+
 
 def test_cancel_scan_job(client: TestClient):
     response = client.post(

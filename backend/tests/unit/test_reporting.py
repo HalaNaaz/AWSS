@@ -12,6 +12,7 @@ from backend.app.reporting.manager import ReportManager
 from backend.app.reporting.json_report import JSONReportGenerator
 from backend.app.reporting.markdown_report import MarkdownReportGenerator
 from backend.app.reporting.html_report import HTMLReportGenerator
+from backend.app.reporting.sarif_report import SARIFReportGenerator
 from backend.app.core.exceptions import ScanConfigurationError
 
 
@@ -229,6 +230,37 @@ def test_report_manager_dispatch(sample_report: UnifiedScanReport):
 
     md_out = manager.generate_report(sample_report, ReportFormat.MARKDOWN)
     assert "# Ashlynx WebSec Scanner" in md_out
+
+    sarif_out = manager.generate_report(sample_report, ReportFormat.SARIF)
+    sarif_data = json.loads(sarif_out)
+    assert sarif_data["version"] == "2.1.0"
+    assert len(sarif_data["runs"][0]["results"]) == 2
+
+
+def test_sarif_report_generation(sample_report: UnifiedScanReport):
+    generator = SARIFReportGenerator()
+    assert generator.format_name == ReportFormat.SARIF
+    assert generator.content_type == "application/sarif+json; charset=utf-8"
+
+    rendered = generator.generate(sample_report)
+    data = json.loads(rendered)
+    assert data["$schema"] == "https://json.schemastore.org/sarif-2.1.0.json"
+    assert data["version"] == "2.1.0"
+    assert len(data["runs"]) == 1
+
+    run = data["runs"][0]
+    driver = run["tool"]["driver"]
+    assert driver["name"] == "Ashlynx WebSec Scanner"
+    assert len(driver["rules"]) == 2
+    assert run["invocations"][0]["executionSuccessful"] is True
+
+    results = run["results"]
+    assert len(results) == 2
+    assert results[0]["level"] == "warning"  # Severity.MEDIUM
+    assert results[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "https://example.com/app"
+    assert results[0]["partialFingerprints"]["evidenceSha256"]
+    assert results[1]["level"] == "error"  # Severity.HIGH
+    assert results[1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "https://example.com/login"
 
 
 def test_report_manager_path_traversal_validation(tmp_path: Path):
