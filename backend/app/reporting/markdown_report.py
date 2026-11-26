@@ -1,5 +1,6 @@
 from shared.schemas.report import ReportFormat, UnifiedScanReport
 from backend.app.reporting.base import BaseReportGenerator
+from backend.app.scanner.evidence.redactor import EvidenceRedactor
 
 
 class MarkdownReportGenerator(BaseReportGenerator):
@@ -74,7 +75,7 @@ class MarkdownReportGenerator(BaseReportGenerator):
                 sev_badge = f"[{f.severity.value}]"
                 lines.append(f"### 3.{idx} {f.title} {sev_badge}")
                 lines.append(f"- **Vulnerability ID / Rule:** `{f.id}`")
-                lines.append(f"- **Affected Endpoint:** `{f.endpoint.url}`")
+                lines.append(f"- **Affected Endpoint:** `{EvidenceRedactor.redact(f.endpoint.url)}`")
                 lines.append(f"- **HTTP Method:** `{f.endpoint.method}`" + (f" (Param: `{f.endpoint.parameter}`)" if f.endpoint.parameter else ""))
                 lines.append(f"- **Severity:** **{f.severity.value}** (CVSS: {f.cvss_score})")
                 lines.append(f"- **Classification:** CWE-{f.cwe_id.replace('CWE-', '')}" + (f" | {f.owasp_category}" if f.owasp_category else ""))
@@ -115,7 +116,7 @@ class MarkdownReportGenerator(BaseReportGenerator):
                     lines.append(f"- **SHA-256 Integrity Seal:** `{f.evidence.sha256_hash}`")
                     if f.evidence.response:
                         lines.append("```http")
-                        lines.append(f.evidence.response.strip())
+                        lines.append(EvidenceRedactor.redact(f.evidence.response.strip()))
                         lines.append("```")
                         lines.append("")
 

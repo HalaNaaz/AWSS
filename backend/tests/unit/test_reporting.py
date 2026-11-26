@@ -303,3 +303,44 @@ def test_report_manager_export_to_file(sample_report: UnifiedScanReport, tmp_pat
     content = result_path.read_text(encoding="utf-8")
     assert "<!DOCTYPE html>" in content
     assert "Missing Content-Security-Policy" in content
+
+
+def test_markdown_and_json_report_redact_sensitive_evidence():
+    scan_id = uuid4()
+    finding = FindingResponse(
+        id=uuid4(),
+        scan_id=scan_id,
+        title="Token Leakage in Trace",
+        description="Endpoint exposed credential headers.",
+        severity=Severity.HIGH,
+        confidence=0.95,
+        status=FindingStatus.VERIFIED,
+        cwe_id="CWE-200",
+        cvss_score=7.5,
+        remediation="Mask tokens prior to logging.",
+        curl_reproduction="curl -H 'Authorization: Bearer leak_curl_secret' https://example.com/auth?access_token=leak_qp_123",
+        endpoint=EndpointSchema(url="https://example.com/auth?access_token=leak_qp_123", method="GET"),
+        evidence=EvidenceSchema(
+            request="GET /auth?access_token=leak_qp_123 HTTP/1.1\r\nAuthorization: Bearer leak_req_token",
+            response="HTTP/1.1 200 OK\r\nSet-Cookie: session=leak_cookie_999; HttpOnly",
+            sha256_hash="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        ),
+        created_at=datetime.now(timezone.utc),
+    )
+    report = UnifiedScanReport(
+        scan_id=scan_id,
+        target_url="https://example.com",
+        profile=ScanProfile.QUICK_ASSESSMENT,
+        status=ScanStatus.COMPLETED,
+        severity_summary=SeveritySummarySchema.from_findings([finding]),
+        findings=[finding],
+    )
+
+    json_out = JSONReportGenerator().generate(report)
+    md_out = MarkdownReportGenerator().generate(report)
+
+    for leaked in ("leak_curl_secret", "leak_qp_123", "leak_req_token", "leak_cookie_999"):
+        assert leaked not in json_out
+        assert leaked not in md_out
+    assert "[REDACTED]" in json_out
+    assert "[REDACTED]" in md_out
