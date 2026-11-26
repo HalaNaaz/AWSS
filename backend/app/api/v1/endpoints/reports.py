@@ -11,10 +11,10 @@ report_manager = ReportManager()
 @router.get("/{scan_id}")
 async def get_report_by_id(
     scan_id: UUID,
-    format: ReportFormat = Query(ReportFormat.JSON, description="Output format: json, html, markdown"),
+    format: ReportFormat = Query(ReportFormat.JSON, description="Output format: json, html, markdown, sarif"),
     download: bool = Query(False, description="Whether to trigger file download attachment"),
 ) -> Response:
-    """Retrieves unified scan report in requested format (JSON, HTML, Markdown)."""
+    """Retrieves unified scan report in requested format (JSON, HTML, Markdown, SARIF)."""
     report = scan_registry.get_report(scan_id)
     if not report:
         raise HTTPException(

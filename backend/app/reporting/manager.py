@@ -8,6 +8,7 @@ from backend.app.reporting.base import BaseReportGenerator
 from backend.app.reporting.json_report import JSONReportGenerator
 from backend.app.reporting.markdown_report import MarkdownReportGenerator
 from backend.app.reporting.html_report import HTMLReportGenerator
+from backend.app.reporting.sarif_report import SARIFReportGenerator
 from backend.app.core.exceptions import ScanConfigurationError
 
 
@@ -19,6 +20,7 @@ class ReportManager:
             ReportFormat.JSON: JSONReportGenerator(),
             ReportFormat.HTML: HTMLReportGenerator(),
             ReportFormat.MARKDOWN: MarkdownReportGenerator(),
+            ReportFormat.SARIF: SARIFReportGenerator(),
         }
 
     def register_generator(self, generator: BaseReportGenerator) -> None:
