@@ -49,5 +49,5 @@ When working on any module in this repository:
 2. **Preserve Documentation:** Do not delete, overwrite, or contradict existing architecture documents.
 3. **Write Tests:** Every new module, schema, parser, or security check must include unit and integration tests. Line coverage target is $\ge 85\%$.
 4. **No External Attack Traffic:** Never fire active scans against unauthorized external targets during development or automated tests. Use containerized local fixtures (DVWA, Juice Shop mocks) and synthetic unit tests.
-5. **Architectural Decision Records (ADRs):** Any new technology, protocol, or design choice must be documented in `docs/architecture/ARCHITECTURE_DECISION_RECORDS.md`.
+5. **Architectural Decision Records (ADRs):** Any new technology, protocol, or design choice must be documented in `docs/ARCHITECTURE.md` (ADRs section).
 6. **Linting and Typing:** Mandatory type annotations (Python `mypy` / TypeScript `strict: true`). Ensure zero syntax errors and clean linting before committing.
