@@ -53,6 +53,11 @@ Using the Microsoft STRIDE methodology, we systematically evaluate threat actors
 - **Mitigation:** Strictly non-destructive probes (syntax quote tests and boolean mathematical invariant probes like `AND 8943=8943`); absolute prohibition of destructive SQL keywords.
 
 ### 2.6 Threat 6: Self-Inflicted SSRF Pivot via Active SSRF Probing (Elevation of Privilege)
-- **Vector:** Active SSRF checks attempt to resolve cloud metadata or internal RFC 1918 subnets.
+- **Vector:** Active SSRF checks attempt to resolve cloud metadata, CGNAT (`100.64.0.0/10`), benchmarking (`198.18.0.0/15`), IPv4-mapped IPv6 (`::ffff:100.64.0.1`), or internal RFC 1918 subnets.
 - **Impact:** Self-exploitation of scanner host or cloud environment.
-- **Mitigation:** Safe RFC 2606 synthetic domain probes (`scan-probe.invalid`), zero probes against private/metadata IPs, mandatory ScopeGate validation for all outbound sockets.
+- **Mitigation:** Safe RFC 2606 synthetic domain probes (`scan-probe.invalid`), zero probes against private/metadata/CGNAT IPs, URL scheme validation prior to `pin_map` lookup, and mandatory `ScopeGate` validation for all outbound sockets.
+
+### 2.7 Threat 7: Unauthorized Workstation API Access (Spoofing / Elevation of Privilege)
+- **Vector:** Untrusted local processes or reverse-proxied external requests attempt to trigger active scans against arbitrary hosts via `POST /api/v1/scans/` or `POST /api/v1/targets/`.
+- **Impact:** Unauthorized outbound active probing.
+- **Mitigation:** Default `127.0.0.1` loopback bind with `LocalBoundaryAndAuthMiddleware` enforcing loopback-only requests (`403 LOCAL_BOUNDARY_VIOLATION` on remote forwarded traffic) and mandatory `Bearer` / `X-API-Key` validation (`401`) whenever `API_AUTH_TOKEN` is configured.
