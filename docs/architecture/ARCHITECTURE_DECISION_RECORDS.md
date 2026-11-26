@@ -64,3 +64,14 @@
 * **Context:** Phases 1–6 established passive headers/cookies/CORS/disclosure/HTML checks and active SQLi/XSS/SSRF/XXE/Misconfig/Auth analyzers, leaving targeted gaps in response caching, JWT/token hygiene, client-side DOM/tabnabbing/postMessage security, two-phase path traversal verification, and API security checks.
 * **Decision:** Add focused, single-purpose passive analyzers (`SEC-CACHE-ANALYZER`, `AUTH-TOKEN-ANALYZER`, `CLIENT-SEC-ANALYZER`) and bounded non-destructive active analyzers (`ACT-TRAVERSAL-ANALYZER`, `ACT-API-SEC-ANALYZER`) registered in `PassiveAnalysisEngine` and `ActivePluginRegistry`. Strengthen `ConfidenceEngine` signal-quality dampening for low-probe unverified anomalies rather than creating a parallel finding schema.
 * **Consequences:** Preserves non-bypassable `ScopeGate` socket pinning, two-phase deterministic verification, and AVIVE compatibility while expanding OWASP Top 10 coverage and reducing unverified noise.
+
+---
+
+### ADR-009: Standard SARIF 2.1.0 Reporting, Target Scope API & Bounded In-Memory Registry
+* **Status:** Approved
+* **Context:** Security engineering workflows require OASIS SARIF 2.1.0 output for CI code-scanning integration, server-backed target scope inventory (`TargetRegistry`) shared across Web UI and CLI, and memory-bounded retention for long-running local workstation sessions.
+* **Decision:**
+  1. Register `SARIFReportGenerator` (`ReportFormat.SARIF`, `application/sarif+json; charset=utf-8`) in `ReportManager` mapping severity (`error`/`warning`/`note`), CWE tags, CVSS security-severity scores, endpoint locations, and SHA-256 evidence fingerprints.
+  2. Expose REST CRUD endpoints at `/api/v1/targets` (`TargetRegistry`) enforcing URL scheme validation and `ScopeGate` private-IP checks, synchronized with Next.js UI and `ashlynx targets` CLI.
+  3. Enforce `DEFAULT_MAX_RETAINED_SCANS = 100` eviction in `ScanLifecycleRegistry` on oldest terminal scans while never evicting active `RUNNING` scans.
+* **Consequences:** Enables full CI SARIF adoption, eliminates volatile UI-only target state, and prevents unbounded memory growth in local workstation mode.

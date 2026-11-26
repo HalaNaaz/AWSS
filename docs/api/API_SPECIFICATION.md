@@ -29,6 +29,12 @@
 - `GET /api/v1/healthz` — Service health details.
 - `GET /api/v1/readyz` — Deep readiness probe (database, redis, security gate).
 
+### 2.1.1 Authorized Targets & Scope Inventory
+- `GET /api/v1/targets/` — List registered authorized application targets and ScopeGate boundaries.
+- `POST /api/v1/targets/` — Register an authorized target with URL scheme and ScopeGate anti-SSRF validation (`201 Created`).
+- `GET /api/v1/targets/{target_id}` — Retrieve single target scope metadata (`404` if missing).
+- `DELETE /api/v1/targets/{target_id}` — Remove a registered target from active inventory.
+
 ### 2.2 Scan Job Orchestration
 - `POST /api/v1/scans` — Trigger a new scan assessment.
   - **Request Body:**
@@ -69,7 +75,7 @@
 ### 2.6 Report Generation & Export (Phase 2C)
 - `GET /api/v1/scans/{scan_id}/report` — Retrieve formatted report for a completed scan job.
   - **Query Parameters:** `format` (`json`, `html`, `markdown`, `sarif`). Default: `json`.
-  - **Response:** Formatted string content with matching `Content-Type` header (`application/json`, `text/html; charset=utf-8`, `text/markdown; charset=utf-8`).
+  - **Response:** Formatted string content with matching `Content-Type` header (`application/json; charset=utf-8`, `text/html; charset=utf-8`, `text/markdown; charset=utf-8`, `application/sarif+json; charset=utf-8`).
 - `GET /api/v1/reports/{scan_id}` — Export and download security assessment report.
   - **Query Parameters:** `format` (`json`, `html`, `markdown`, `sarif`), `download` (boolean). Default format: `json`.
   - **Response:** Report payload with optional `Content-Disposition: attachment; filename="ashlynx_report_{scan_id}.{ext}"` header.
@@ -100,3 +106,7 @@
 - `GET /api/v1/discovery/{scan_id}/assets` — Retrieve mapped client-side assets by type (JS, CSS, Image, Font, Doc, SourceMap).
 - `GET /api/v1/discovery/{scan_id}/graph` — Retrieve attack surface topology graph in standard JSON or Cytoscape.js format (`?graph_format=cytoscape`).
 - `GET /api/v1/discovery/{scan_id}/prioritized` — Retrieve exploration-prioritized endpoints ranked by evidence-based heuristics.
+
+### 2.9 Security Analytics & Scan Comparison (Phase 6)
+- `GET /api/v1/analytics/overview` — Aggregated multi-scan severity, OWASP coverage, and category analytics.
+- `GET /api/v1/analytics/compare` — Compare `baseline_scan_id` vs `current_scan_id` using deterministic AVIVE finding fingerprints.
