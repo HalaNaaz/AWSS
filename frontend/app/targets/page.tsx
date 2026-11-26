@@ -56,6 +56,17 @@ export default function TargetsPage() {
     loadTargets();
   }, []);
 
+  useEffect(() => {
+    if (!showAddModal) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowAddModal(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showAddModal]);
+
   const handleAddTarget = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);

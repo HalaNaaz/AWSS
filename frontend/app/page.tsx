@@ -117,6 +117,19 @@ export default function OverviewDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!showScanModal && !showTargetModal && !selectedScanFindings) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowScanModal(false);
+        setShowTargetModal(false);
+        setSelectedScanFindings(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showScanModal, showTargetModal, selectedScanFindings]);
+
   const totalFindings = scans.reduce((acc, s) => acc + (s.findings_count || 0), 0);
   const activeScansCount = scans.filter((s) => s.status === "RUNNING" || s.status === "QUEUED").length;
 
