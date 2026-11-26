@@ -77,6 +77,15 @@ def test_scope_gate_prohibited_ipv6_and_mapped():
     # Unspecified address
     assert gate.is_ip_prohibited("::") is True
 
+    # Carrier-Grade NAT (RFC 6598), Benchmarking (RFC 2544), IANA protocol, and IPv6 documentation ranges
+    assert gate.is_ip_prohibited("100.64.0.1") is True
+    assert gate.is_ip_prohibited("100.127.255.254") is True
+    assert gate.is_ip_prohibited("192.0.0.8") is True
+    assert gate.is_ip_prohibited("198.18.0.1") is True
+    assert gate.is_ip_prohibited("198.19.255.254") is True
+    assert gate.is_ip_prohibited("2001:db8::1") is True
+    assert gate.is_ip_prohibited("::ffff:100.64.0.1") is True
+
 
 def test_scope_gate_redirect_validation():
     gate = ScopeGate(target_base_url="https://app.example.com")

@@ -24,15 +24,19 @@ class ScopeGate:
     PROHIBITED_NETWORKS = [
         ipaddress.ip_network("0.0.0.0/8"),
         ipaddress.ip_network("10.0.0.0/8"),
+        ipaddress.ip_network("100.64.0.0/10"),      # Carrier-Grade NAT (RFC 6598)
         ipaddress.ip_network("127.0.0.0/8"),
         ipaddress.ip_network("169.254.0.0/16"),       # Cloud metadata & APIPA (RFC 3927)
         ipaddress.ip_network("172.16.0.0/12"),
+        ipaddress.ip_network("192.0.0.0/24"),        # IANA IETF Protocol Assignments
         ipaddress.ip_network("192.168.0.0/16"),
+        ipaddress.ip_network("198.18.0.0/15"),       # Network benchmark testing (RFC 2544)
         ipaddress.ip_network("224.0.0.0/4"),         # Multicast
         ipaddress.ip_network("240.0.0.0/4"),         # Reserved
         ipaddress.ip_network("::1/128"),             # IPv6 Loopback
         ipaddress.ip_network("fc00::/7"),            # IPv6 Unique Local
         ipaddress.ip_network("fe80::/10"),           # IPv6 Link-Local
+        ipaddress.ip_network("2001:db8::/32"),       # IPv6 Documentation Prefix (RFC 3849)
     ]
 
     def __init__(
@@ -83,10 +87,13 @@ class ScopeGate:
                     or v4_obj.is_unspecified
                 ):
                     return True
+                for net in self.PROHIBITED_NETWORKS:
+                    if net.version == 4 and v4_obj in net:
+                        return True
 
             # Match against explicit prohibited subnets
             for net in self.PROHIBITED_NETWORKS:
-                if ip_obj in net:
+                if net.version == ip_obj.version and ip_obj in net:
                     return True
 
             return False
