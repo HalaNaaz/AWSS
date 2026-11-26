@@ -65,8 +65,8 @@ class VulnerabilityIntelligenceEngine:
         params_by_url: Dict[str, List[ParameterIntelligenceSchema]] = defaultdict(list)
         if discovery_engine:
             try:
-                apis_list = discovery_engine.api_engine.get_apis()
-                for param in discovery_engine.parameter_engine.get_all_parameters():
+                apis_list = discovery_engine.api_engine.get_api_endpoints()
+                for param in discovery_engine.parameter_engine.get_parameters():
                     for ep_url in param.endpoints_found:
                         params_by_url[ep_url.lower()].append(param)
             except Exception:
@@ -228,8 +228,8 @@ class VulnerabilityIntelligenceEngine:
         params_by_url: Dict[str, List[ParameterIntelligenceSchema]] = defaultdict(list)
         if discovery_engine:
             try:
-                apis_list = discovery_engine.api_engine.get_apis()
-                for param in discovery_engine.parameter_engine.get_all_parameters():
+                apis_list = discovery_engine.api_engine.get_api_endpoints()
+                for param in discovery_engine.parameter_engine.get_parameters():
                     for ep_url in param.endpoints_found:
                         params_by_url[ep_url.lower()].append(param)
             except Exception:

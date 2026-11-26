@@ -12,6 +12,13 @@ from shared.schemas.intelligence import (
     ScanIntelligenceSummarySchema,
     ValidationState,
 )
+from shared.schemas.phase6 import (
+    ContextAssessmentReportSchema,
+    EvidenceIntelligenceSummarySchema,
+    ExecutionReliabilityMetricsSchema,
+    ScanPlanSchema,
+    SecurityCoverageReportSchema,
+)
 from shared.schemas.report import ReportFormat
 from backend.app.api.v1.endpoints.findings import filter_findings_collection
 from backend.app.scanner.orchestration.scan_orchestrator import (
@@ -37,8 +44,16 @@ async def create_scan_job(
     run_sync: bool = Query(False, description="Execute synchronously and wait for completion (for testing/automation)"),
 ) -> APIResponse[ScanJobResponse]:
     """Registers and queues a new scan job, executing discovery and passive analysis."""
-    scan_id = uuid4()
     target_url = job_in.target_url or ""
+    if target_url and not run_sync:
+        existing_id = scan_registry.has_active_job(target_url, job_in.profile)
+        if existing_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"An active scan ({existing_id}) for '{target_url}' with profile '{job_in.profile.value}' is already RUNNING.",
+            )
+
+    scan_id = uuid4()
 
     orchestrator = ScanOrchestrator(
         target_url=target_url,
@@ -153,6 +168,66 @@ async def update_scan_risk_configuration(
         message=f"Contextual risk recalculated with asset criticality {payload.asset_criticality}.",
         data=summary,
     )
+
+
+@router.get("/{scan_id}/plan", response_model=APIResponse[ScanPlanSchema])
+async def get_scan_plan(scan_id: UUID) -> APIResponse[ScanPlanSchema]:
+    """Retrieves the Phase 6B explainable scan plan for a scan."""
+    report = scan_registry.get_report(scan_id)
+    if not report or not report.scan_plan:
+        job = scan_registry.get_job(scan_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Scan plan for '{scan_id}' not yet available.")
+    return APIResponse(success=True, data=report.scan_plan)
+
+
+@router.get("/{scan_id}/context-assessment", response_model=APIResponse[ContextAssessmentReportSchema])
+async def get_scan_context_assessment(scan_id: UUID) -> APIResponse[ContextAssessmentReportSchema]:
+    """Retrieves Phase 6C context-aware assessment suggestions for a scan."""
+    report = scan_registry.get_report(scan_id)
+    if not report or not report.context_assessment:
+        job = scan_registry.get_job(scan_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Context assessment for '{scan_id}' not yet available.")
+    return APIResponse(success=True, data=report.context_assessment)
+
+
+@router.get("/{scan_id}/coverage", response_model=APIResponse[SecurityCoverageReportSchema])
+async def get_scan_security_coverage(scan_id: UUID) -> APIResponse[SecurityCoverageReportSchema]:
+    """Retrieves Phase 6D OWASP Top 10:2021 security coverage intelligence for a scan."""
+    report = scan_registry.get_report(scan_id)
+    if not report or not report.security_coverage:
+        job = scan_registry.get_job(scan_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Security coverage for '{scan_id}' not yet available.")
+    return APIResponse(success=True, data=report.security_coverage)
+
+
+@router.get("/{scan_id}/reliability", response_model=APIResponse[ExecutionReliabilityMetricsSchema])
+async def get_scan_reliability_metrics(scan_id: UUID) -> APIResponse[ExecutionReliabilityMetricsSchema]:
+    """Retrieves Phase 6E execution reliability and HTTP retry/timeout telemetry for a scan."""
+    report = scan_registry.get_report(scan_id)
+    if not report or not report.execution_reliability:
+        job = scan_registry.get_job(scan_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Reliability telemetry for '{scan_id}' not yet available.")
+    return APIResponse(success=True, data=report.execution_reliability)
+
+
+@router.get("/{scan_id}/evidence-intelligence", response_model=APIResponse[EvidenceIntelligenceSummarySchema])
+async def get_scan_evidence_intelligence(scan_id: UUID) -> APIResponse[EvidenceIntelligenceSummarySchema]:
+    """Retrieves Phase 6F scan-level evidence quality and chain-of-custody metrics."""
+    report = scan_registry.get_report(scan_id)
+    if not report or not report.evidence_intelligence:
+        job = scan_registry.get_job(scan_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Scan job '{scan_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Evidence intelligence for '{scan_id}' not yet available.")
+    return APIResponse(success=True, data=report.evidence_intelligence)
 
 
 @router.get("/{scan_id}/report")

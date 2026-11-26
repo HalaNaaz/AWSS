@@ -32,6 +32,7 @@ export default function RootLayout({
               <Link href="/scans" className="hover:text-slate-200">Scans</Link>
               <Link href="/targets" className="hover:text-slate-200">Targets</Link>
               <Link href="/findings" className="hover:text-slate-200">Findings</Link>
+              <Link href="/analytics" className="hover:text-cyan-300">Analytics</Link>
               <Link href="/reports" className="hover:text-slate-200">Reports</Link>
             </nav>
             <div className="flex items-center space-x-3">

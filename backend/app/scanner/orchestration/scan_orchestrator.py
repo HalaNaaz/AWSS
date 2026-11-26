@@ -10,6 +10,11 @@ from backend.app.scanner.crawler.client import AsyncHTTPClient
 from backend.app.scanner.active import ActiveDetectionEngine, ActiveTarget
 from backend.app.scanner.discovery.engine import AttackSurfaceIntelligenceEngine
 from backend.app.scanner.intelligence.engine import VulnerabilityIntelligenceEngine
+from backend.app.scanner.intelligence.planner import IntelligentScanPlanner
+from backend.app.scanner.intelligence.context_assessor import ContextAwareAssessor
+from backend.app.scanner.intelligence.coverage import SecurityCoverageEngine
+from backend.app.scanner.intelligence.evidence_intel import EvidenceIntelligenceEngine
+from backend.app.scanner.active.registry import active_plugin_registry
 from shared.schemas.common import ScanProfile, ScanStatus, ScopeRuleType
 from shared.schemas.discovery import (
     ReconSummaryResponse,
@@ -22,6 +27,13 @@ from shared.schemas.discovery import (
 )
 from shared.schemas.finding import FindingResponse
 from shared.schemas.intelligence import ScanIntelligenceSummarySchema
+from shared.schemas.phase6 import (
+    ContextAssessmentReportSchema,
+    EvidenceIntelligenceSummarySchema,
+    ExecutionReliabilityMetricsSchema,
+    ScanPlanSchema,
+    SecurityCoverageReportSchema,
+)
 from shared.schemas.report import UnifiedScanReport, SeveritySummarySchema
 from shared.schemas.scan import SCAN_PROFILE_PRESETS, ScanJobResponse, ScanJobCreate
 
@@ -81,6 +93,11 @@ class ScanOrchestrator:
         self._active_engine: Optional[ActiveDetectionEngine] = None
         self._recon_summary: Optional[ReconSummaryResponse] = None
         self._intelligence_summary: Optional[ScanIntelligenceSummarySchema] = None
+        self._scan_plan: Optional[ScanPlanSchema] = None
+        self._context_assessment: Optional[ContextAssessmentReportSchema] = None
+        self._security_coverage: Optional[SecurityCoverageReportSchema] = None
+        self._execution_reliability: Optional[ExecutionReliabilityMetricsSchema] = None
+        self._evidence_intelligence: Optional[EvidenceIntelligenceSummarySchema] = None
         self._report: Optional[UnifiedScanReport] = None
         self._is_cancelled = False
 
@@ -187,8 +204,25 @@ class ScanOrchestrator:
                 self.duration_seconds = round(time.perf_counter() - start_time, 2)
                 return self._build_cancelled_report()
 
+            recon_t0 = time.perf_counter()
             recon_summary = await self._recon_orchestrator.run()
+            recon_dur = round(time.perf_counter() - recon_t0, 3)
             self._recon_summary = recon_summary
+            stage_timings: Dict[str, float] = {"reconnaissance": recon_dur}
+
+            # Phase 6B: Build Intelligent Scan Plan
+            plan_t0 = time.perf_counter()
+            self._scan_plan = IntelligentScanPlanner.build_plan(
+                scan_id=self.scan_id,
+                target_url=self.target_url,
+                profile=self.profile,
+                scope_gate=self._recon_orchestrator.scope_gate,
+                discovery_engine=self.discovery_engine,
+                request_budget=self.request_budget,
+                rate_limit_rps=self.rate_limit_rps,
+                enabled_modules=self.enabled_modules,
+            )
+            stage_timings["scan_planning"] = round(time.perf_counter() - plan_t0, 3)
 
             # Check if active vulnerability scanning is enabled for this profile
             preset = SCAN_PROFILE_PRESETS.get(self.profile, {})
@@ -199,25 +233,40 @@ class ScanOrchestrator:
                 ScanProfile.API_TARGETED,
             )
 
+            executed_analyzers: List[str] = []
+            client_metrics: Dict[str, int] = {}
+
             if is_active_profile and not self._is_cancelled and recon_summary.status != "CANCELLED":
                 logger.info(f"[ScanOrchestrator] Initiating active vulnerability detection phase for scan {self.scan_id}")
-                targets: List[ActiveTarget] = [ActiveTarget(url=self.target_url, method="GET")]
-                seen_urls = {self.target_url}
+                act_t0 = time.perf_counter()
+                targets: List[ActiveTarget] = []
+                seen_urls: Set[str] = set()
 
+                # Prioritize planned endpoints first, skipping pruned static assets
+                planned_urls = {p.url for p in self._scan_plan.planned_checks}
                 for ep in getattr(self._recon_orchestrator, "discovered_endpoints", []):
-                    if ep.url not in seen_urls:
+                    if ep.url in planned_urls and ep.url not in seen_urls:
                         seen_urls.add(ep.url)
                         targets.append(ActiveDetectionEngine.endpoint_to_active_target(ep))
+
+                # Always ensure root target is covered if not pruned/planned
+                if not targets and self.target_url not in seen_urls:
+                    targets.append(ActiveTarget(url=self.target_url, method="GET"))
 
                 self._active_engine = ActiveDetectionEngine(
                     request_budget=self.request_budget or 60,
                     concurrency=self.concurrency,
                     timeout_seconds=15.0,
                 )
+                executed_analyzers = [
+                    a.analyzer_id
+                    for a in active_plugin_registry.get_analyzers_for_profile(self.profile, self.enabled_modules)
+                ]
 
                 async with AsyncHTTPClient(
                     scope_gate=self._recon_orchestrator.scope_gate,
                     rate_limit_rps=self.rate_limit_rps,
+                    max_retries=1,
                 ) as active_client:
                     active_findings = await self._active_engine.run(
                         targets=targets,
@@ -226,6 +275,9 @@ class ScanOrchestrator:
                         profile=self.profile,
                         enabled_modules=self.enabled_modules,
                     )
+                    client_metrics = dict(active_client.metrics)
+
+                stage_timings["active_detection"] = round(time.perf_counter() - act_t0, 3)
 
                 # Merge active findings with passive findings
                 converted_active = [af.to_finding_response(self.scan_id) for af in active_findings]
@@ -244,6 +296,7 @@ class ScanOrchestrator:
                 recon_summary.findings_count = len(combined)
 
             # Phase 5: Execute AVIVE (Normalization, Correlation, Confidence, Validation, Risk, Remediation)
+            avive_t0 = time.perf_counter()
             raw_combined = list(recon_summary.findings or [])
             enriched_findings, intel_summary = VulnerabilityIntelligenceEngine.process_findings(
                 raw_findings=raw_combined,
@@ -256,6 +309,29 @@ class ScanOrchestrator:
             recon_summary.findings = enriched_findings
             recon_summary.findings_count = len(enriched_findings)
             self._intelligence_summary = intel_summary
+            stage_timings["avive_intelligence"] = round(time.perf_counter() - avive_t0, 3)
+
+            # Phase 6C/6D/6E/6F: Context Assessment, Coverage, Evidence & Reliability Telemetry
+            p6_t0 = time.perf_counter()
+            self._context_assessment = ContextAwareAssessor.evaluate(
+                scan_id=self.scan_id,
+                discovery_engine=self.discovery_engine,
+                findings=enriched_findings,
+            )
+            self._security_coverage = SecurityCoverageEngine.evaluate(
+                scan_id=self.scan_id,
+                profile=self.profile,
+                findings=enriched_findings,
+                scan_plan=self._scan_plan,
+                passive_executed=True,
+                active_analyzers_executed=executed_analyzers,
+                urls_crawled=recon_summary.urls_crawled,
+            )
+            self._evidence_intelligence = EvidenceIntelligenceEngine.summarize(
+                scan_id=self.scan_id,
+                findings=enriched_findings,
+            )
+            stage_timings["phase6_intelligence"] = round(time.perf_counter() - p6_t0, 3)
 
             self.duration_seconds = round(time.perf_counter() - start_time, 2)
             self.completed_at = datetime.now(timezone.utc)
@@ -263,10 +339,31 @@ class ScanOrchestrator:
             # Check if cancelled during crawl
             if self._is_cancelled or recon_summary.status == "CANCELLED":
                 self.status = ScanStatus.CANCELLED
-                report = self._build_report_from_summary(recon_summary, ScanStatus.CANCELLED)
+                final_status = ScanStatus.CANCELLED
             else:
                 self.status = ScanStatus.COMPLETED
-                report = self._build_report_from_summary(recon_summary, ScanStatus.COMPLETED)
+                final_status = ScanStatus.COMPLETED
+
+            err_cnt = client_metrics.get("errors", 0)
+            rel_status = "CANCELLED" if self._is_cancelled else ("DEGRADED" if err_cnt > 5 else "HEALTHY")
+            self._execution_reliability = ExecutionReliabilityMetricsSchema(
+                scan_id=self.scan_id,
+                status=final_status,
+                stage_timings_seconds=stage_timings,
+                total_requests_attempted=client_metrics.get("attempted", 0),
+                successful_requests=client_metrics.get("succeeded", 0),
+                retried_requests=client_metrics.get("retried", 0),
+                timed_out_requests=client_metrics.get("timed_out", 0),
+                rate_limited_429_count=client_metrics.get("rate_limited_429", 0),
+                scope_blocked_count=client_metrics.get("scope_blocked", 0),
+                error_count=err_cnt,
+                concurrency_limit=self.concurrency,
+                rate_limit_rps=self.rate_limit_rps,
+                was_cancelled=self._is_cancelled,
+                reliability_status=rel_status,
+            )
+
+            report = self._build_report_from_summary(recon_summary, final_status)
 
             self._report = report
             logger.info(
@@ -307,6 +404,11 @@ class ScanOrchestrator:
             findings=findings,
             attack_surface_summary=self.get_attack_surface_summary(),
             intelligence_summary=self._intelligence_summary,
+            scan_plan=self._scan_plan,
+            context_assessment=self._context_assessment,
+            security_coverage=self._security_coverage,
+            execution_reliability=self._execution_reliability,
+            evidence_intelligence=self._evidence_intelligence,
         )
 
     def _build_cancelled_report(self) -> UnifiedScanReport:
@@ -450,6 +552,31 @@ class ScanLifecycleRegistry:
                         return (f, orch._report)
         if finding_id in self._standalone_findings:
             return (self._standalone_findings[finding_id], None)
+        return None
+
+    def list_reports(self) -> List[UnifiedScanReport]:
+        """Returns all unique scan reports stored across reports and orchestrators."""
+        seen: Set[UUID] = set()
+        results: List[UnifiedScanReport] = []
+        for sid, rep in self._reports.items():
+            seen.add(sid)
+            results.append(rep)
+        for sid, orch in self._orchestrators.items():
+            if sid not in seen and orch._report:
+                results.append(orch._report)
+        return results
+
+    def has_active_job(self, target_url: str, profile: ScanProfile) -> Optional[UUID]:
+        """Detects whether an identical scan job is currently RUNNING or QUEUED."""
+        norm = target_url.strip().rstrip("/").lower()
+        for job in self.list_jobs():
+            if (
+                job.target_url
+                and job.target_url.strip().rstrip("/").lower() == norm
+                and job.profile == profile
+                and job.status == ScanStatus.RUNNING
+            ):
+                return job.id
         return None
 
     def get_intelligence_summary(self, scan_id: UUID) -> Optional[ScanIntelligenceSummarySchema]:

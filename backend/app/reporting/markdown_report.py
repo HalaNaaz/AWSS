@@ -122,4 +122,21 @@ class MarkdownReportGenerator(BaseReportGenerator):
                 lines.append("---")
                 lines.append("")
 
+        if report.security_coverage:
+            cov = report.security_coverage
+            lines.append("## 4. OWASP Top 10:2021 Security Coverage Intelligence")
+            lines.append(
+                f"**Overall DAST Coverage:** `{cov.overall_dast_coverage_percent}%` "
+                f"(Tested: {cov.tested_categories_count}, Partial: {cov.partial_categories_count}, "
+                f"Skipped: {cov.skipped_categories_count}, Untested: {cov.untested_categories_count})"
+            )
+            lines.append("")
+            lines.append("| OWASP Category | Status | Findings | Explanation |")
+            lines.append("| :--- | :--- | :---: | :--- |")
+            for entry in cov.owasp_categories:
+                lines.append(f"| {entry.owasp_id} {entry.owasp_name} | `{entry.status.value}` | {entry.findings_detected} | {entry.explanation} |")
+            lines.append("")
+            lines.append(f"*{cov.honesty_disclaimer}*")
+            lines.append("")
+
         return "\n".join(lines)

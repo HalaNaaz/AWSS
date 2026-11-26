@@ -1,18 +1,6 @@
 import asyncio
 import time
 from typing import Optional, Dict, Any, Tuple
-from urllib.parse import urlparse
-import httpx
-
-from backend.app.core.config import settings
-from backend.app.core.exceptions import ScopeViolationError, SSRFValidationError
-from backend.app.core.logging import logger
-from backend.app.scanner.scope.scope_gate import ScopeGate
-
-
-import asyncio
-import time
-from typing import Optional, Dict, Any, Tuple
 from urllib.parse import urlparse, urljoin
 import httpx
 import httpcore
@@ -74,7 +62,8 @@ class AsyncHTTPClient:
         max_redirects: int = 5,
         max_response_size: int = 5 * 1024 * 1024,  # 5 MB safety limit
         user_agent: Optional[str] = None,
-        rate_limit_rps: float = 10.0
+        rate_limit_rps: float = 10.0,
+        max_retries: int = 1,
     ):
         self.scope_gate = scope_gate
         self.timeout = timeout
@@ -82,10 +71,20 @@ class AsyncHTTPClient:
         self.max_response_size = max_response_size
         self.user_agent = user_agent or settings.SCANNER_USER_AGENT
         self.rate_limit_rps = rate_limit_rps
+        self.max_retries = max(0, min(3, int(max_retries)))
 
         # Internal concurrency rate limiter
         self._rate_limiter = asyncio.Semaphore(max(1, int(rate_limit_rps)))
         self._client: Optional[httpx.AsyncClient] = None
+        self.metrics: Dict[str, int] = {
+            "attempted": 0,
+            "succeeded": 0,
+            "retried": 0,
+            "timed_out": 0,
+            "rate_limited_429": 0,
+            "scope_blocked": 0,
+            "errors": 0,
+        }
 
     async def __aenter__(self):
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=50)
@@ -136,79 +135,106 @@ class AsyncHTTPClient:
             try:
                 pinned_ip = self.scope_gate.pre_flight_check(current_url)
             except (ScopeViolationError, SSRFValidationError) as sec_err:
+                self.metrics["scope_blocked"] += 1
                 logger.warning(f"[AsyncHTTPClient] Security Gate Blocked request to '{current_url}': {sec_err.message}")
                 return None, sec_err.message
             except Exception as e:
+                self.metrics["errors"] += 1
                 logger.error(f"[AsyncHTTPClient] Pre-flight resolution failed for '{current_url}': {str(e)}")
                 return None, f"Pre-flight resolution error: {str(e)}"
 
-            # Step 2: Rate Limiting & Request Dispatch
-            start_time = time.perf_counter()
-            try:
-                req_headers = {"User-Agent": self.user_agent}
-                if headers:
-                    req_headers.update(headers)
+            # Step 2: Rate Limiting & Bounded Retry Dispatch
+            attempt = 0
+            response = None
+            last_err: Optional[str] = None
 
-                async with self._rate_limiter:
-                    response = await self._client.request(
-                        method=current_method,
-                        url=current_url,
-                        headers=req_headers,
-                        content=current_content,
-                        data=current_data,
-                        json=current_json,
-                    )
-                response_time = (time.perf_counter() - start_time) * 1000
+            while attempt <= self.max_retries:
+                self.metrics["attempted"] += 1
+                try:
+                    req_headers = {"User-Agent": self.user_agent}
+                    if headers:
+                        req_headers.update(headers)
 
-                # Check response size cap
-                content_len_header = response.headers.get("content-length")
-                if content_len_header and int(content_len_header) > self.max_response_size:
-                    logger.warning(f"[AsyncHTTPClient] Response size {content_len_header} exceeds cap at {current_url}")
-                    return None, f"Response size exceeds limit ({self.max_response_size} bytes)"
+                    async with self._rate_limiter:
+                        response = await self._client.request(
+                            method=current_method,
+                            url=current_url,
+                            headers=req_headers,
+                            content=current_content,
+                            data=current_data,
+                            json=current_json,
+                        )
 
-                # Handle HTTP 429 Too Many Requests: Exponential backoff
-                if response.status_code == 429:
-                    logger.warning(f"[AsyncHTTPClient] Rate limited (HTTP 429) by target at {current_url}. Backing off.")
-                    await asyncio.sleep(2.0)
+                    # Handle HTTP 429 Too Many Requests with bounded exponential backoff
+                    if response.status_code == 429:
+                        self.metrics["rate_limited_429"] += 1
+                        if attempt < self.max_retries:
+                            self.metrics["retried"] += 1
+                            attempt += 1
+                            await asyncio.sleep(min(2.0, 0.5 * (2 ** attempt)))
+                            continue
+                    break
 
-                # Step 3: Handle Redirects Securely
-                if response.status_code in (301, 302, 303, 307, 308):
-                    if not follow_redirects:
-                        return response, None
+                except (httpx.ConnectTimeout, httpx.ReadTimeout) as timeout_err:
+                    self.metrics["timed_out"] += 1
+                    last_err = f"Request timeout: {str(timeout_err)}"
+                    if attempt < self.max_retries:
+                        self.metrics["retried"] += 1
+                        attempt += 1
+                        await asyncio.sleep(min(1.5, 0.25 * (2 ** attempt)))
+                        continue
+                    return None, last_err
+                except httpx.ConnectError as conn_err:
+                    self.metrics["errors"] += 1
+                    return None, f"Connection error: {str(conn_err)}"
+                except Exception as err:
+                    self.metrics["errors"] += 1
+                    return None, f"HTTP dispatch error: {str(err)}"
 
-                    location = response.headers.get("Location")
-                    if not location:
-                        return response, None
+            if response is None:
+                self.metrics["errors"] += 1
+                return None, last_err or "HTTP request failed"
 
-                    # Resolve relative redirect
-                    redirect_target = urljoin(current_url, location)
+            # Check response size cap
+            content_len_header = response.headers.get("content-length")
+            if content_len_header and int(content_len_header) > self.max_response_size:
+                self.metrics["errors"] += 1
+                logger.warning(f"[AsyncHTTPClient] Response size {content_len_header} exceeds cap at {current_url}")
+                return None, f"Response size exceeds limit ({self.max_response_size} bytes)"
 
-                    # Validate redirect hop through ScopeGate
-                    try:
-                        self.scope_gate.validate_redirect(redirect_target)
-                    except (ScopeViolationError, SSRFValidationError) as redirect_err:
-                        logger.warning(f"[AsyncHTTPClient] Redirect to '{redirect_target}' rejected: {redirect_err.message}")
-                        return response, f"Redirect to unsafe destination blocked: {redirect_err.message}"
+            # Step 3: Handle Redirects Securely
+            if response.status_code in (301, 302, 303, 307, 308):
+                if not follow_redirects:
+                    self.metrics["succeeded"] += 1
+                    return response, None
 
-                    # For 303, or 301/302 from POST, standard behavior is switch to GET
-                    if response.status_code == 303 or (response.status_code in (301, 302) and current_method == "POST"):
-                        current_method = "GET"
-                        current_content = None
-                        current_data = None
-                        current_json = None
+                location = response.headers.get("Location")
+                if not location:
+                    self.metrics["succeeded"] += 1
+                    return response, None
 
-                    current_url = redirect_target
-                    redirect_count += 1
-                    continue
+                redirect_target = urljoin(current_url, location)
 
-                return response, None
+                # Validate redirect hop through ScopeGate
+                try:
+                    self.scope_gate.validate_redirect(redirect_target)
+                except (ScopeViolationError, SSRFValidationError) as redirect_err:
+                    self.metrics["scope_blocked"] += 1
+                    logger.warning(f"[AsyncHTTPClient] Redirect to '{redirect_target}' rejected: {redirect_err.message}")
+                    return response, f"Redirect to unsafe destination blocked: {redirect_err.message}"
 
-            except (httpx.ConnectTimeout, httpx.ReadTimeout) as timeout_err:
-                return None, f"Request timeout: {str(timeout_err)}"
-            except httpx.ConnectError as conn_err:
-                return None, f"Connection error: {str(conn_err)}"
-            except Exception as err:
-                return None, f"HTTP dispatch error: {str(err)}"
+                if response.status_code == 303 or (response.status_code in (301, 302) and current_method == "POST"):
+                    current_method = "GET"
+                    current_content = None
+                    current_data = None
+                    current_json = None
+
+                current_url = redirect_target
+                redirect_count += 1
+                continue
+
+            self.metrics["succeeded"] += 1
+            return response, None
 
         return None, f"Exceeded maximum redirect limit ({self.max_redirects})"
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from backend.app.api.v1.endpoints import health, scans, findings, recon, passive, reports, active, discovery
+from backend.app.api.v1.endpoints import health, scans, findings, recon, passive, reports, active, discovery, analytics
 
 api_router = APIRouter()
 
@@ -11,3 +11,4 @@ api_router.include_router(passive.router, prefix="/passive", tags=["Passive Secu
 api_router.include_router(active.router, prefix="/active", tags=["Active Vulnerability Detection"])
 api_router.include_router(discovery.router, prefix="/discovery", tags=["Attack Surface Discovery & Intelligence"])
 api_router.include_router(findings.router, prefix="/findings", tags=["Findings & Evidence"])
+api_router.include_router(analytics.router, prefix="/analytics", tags=["Security Analytics & Comparison"])

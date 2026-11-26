@@ -8,6 +8,13 @@ from shared.schemas.common import Severity, FindingStatus, ScanProfile, ScanStat
 from shared.schemas.finding import FindingResponse
 from shared.schemas.discovery import TechnologyObservationSchema, AttackSurfaceSummarySchema
 from shared.schemas.intelligence import ScanIntelligenceSummarySchema
+from shared.schemas.phase6 import (
+    ContextAssessmentReportSchema,
+    EvidenceIntelligenceSummarySchema,
+    ExecutionReliabilityMetricsSchema,
+    ScanPlanSchema,
+    SecurityCoverageReportSchema,
+)
 
 
 class ReportFormat(str, Enum):
@@ -63,5 +70,10 @@ class UnifiedScanReport(BaseModel):
     findings: List[FindingResponse] = []
     attack_surface_summary: Optional[AttackSurfaceSummarySchema] = None
     intelligence_summary: Optional[ScanIntelligenceSummarySchema] = None
+    scan_plan: Optional[ScanPlanSchema] = None
+    context_assessment: Optional[ContextAssessmentReportSchema] = None
+    security_coverage: Optional[SecurityCoverageReportSchema] = None
+    execution_reliability: Optional[ExecutionReliabilityMetricsSchema] = None
+    evidence_intelligence: Optional[EvidenceIntelligenceSummarySchema] = None
 
     model_config = ConfigDict(from_attributes=True)

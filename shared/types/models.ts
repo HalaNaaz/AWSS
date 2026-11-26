@@ -236,6 +236,12 @@ export interface UnifiedScanReport {
   severity_summary: SeveritySummary;
   findings: Finding[];
   attack_surface_summary?: AttackSurfaceSummary;
+  intelligence_summary?: ScanIntelligenceSummary;
+  scan_plan?: ScanPlan;
+  context_assessment?: ContextAssessmentReport;
+  security_coverage?: SecurityCoverageReport;
+  execution_reliability?: ExecutionReliabilityMetrics;
+  evidence_intelligence?: EvidenceIntelligenceSummary;
 }
 
 export interface APIResponse<T> {
@@ -555,4 +561,156 @@ export interface ScanIntelligenceSummary {
   contextual_priority_breakdown: Record<string, number>;
   manual_review_required_count: number;
   correlation_groups: CorrelationGroup[];
+}
+
+// ==========================================
+// Phase 6: Scanning Intelligence & Analytics
+// ==========================================
+
+export type CoverageStatus = "TESTED" | "PARTIAL" | "SKIPPED" | "UNTESTED" | "INCONCLUSIVE";
+
+export interface PlannedTargetCheck {
+  url: string;
+  method: string;
+  priority_score: number;
+  selected_analyzers: string[];
+  estimated_probes: number;
+  rationale: string;
+}
+
+export interface SkippedTargetCheck {
+  url: string;
+  analyzer_or_category: string;
+  reason: string;
+}
+
+export interface ScanPlan {
+  scan_id: string;
+  target_url: string;
+  profile: ScanProfile;
+  generated_at: string;
+  total_discovered_endpoints: number;
+  planned_targets_count: number;
+  skipped_targets_count: number;
+  allocated_probe_budget: number;
+  estimated_total_probes: number;
+  rate_limit_rps: number;
+  scope_enforced: boolean;
+  technologies_context: string[];
+  planned_checks: PlannedTargetCheck[];
+  skipped_checks: SkippedTargetCheck[];
+  planner_summary: string;
+}
+
+export interface ContextAssessmentSuggestion {
+  suggestion_id: string;
+  target_url: string;
+  category: string;
+  priority: string;
+  recommended_safe_check: string;
+  rationale: string;
+  context_signals: string[];
+  related_existing_findings: number;
+}
+
+export interface ContextAssessmentReport {
+  scan_id: string;
+  evaluated_endpoints: number;
+  evaluated_parameters: number;
+  suggestions: ContextAssessmentSuggestion[];
+  summary: string;
+}
+
+export interface OWASPCoverageEntry {
+  owasp_id: string;
+  owasp_name: string;
+  status: CoverageStatus;
+  checks_executed: string[];
+  checks_skipped: string[];
+  findings_detected: number;
+  explanation: string;
+}
+
+export interface SecurityCoverageReport {
+  scan_id: string;
+  profile: ScanProfile;
+  overall_dast_coverage_percent: number;
+  tested_categories_count: number;
+  partial_categories_count: number;
+  skipped_categories_count: number;
+  untested_categories_count: number;
+  inconclusive_categories_count: number;
+  owasp_categories: OWASPCoverageEntry[];
+  coverage_gaps: string[];
+  honesty_disclaimer: string;
+}
+
+export interface ExecutionReliabilityMetrics {
+  scan_id: string;
+  status: ScanStatus;
+  stage_timings_seconds: Record<string, number>;
+  total_requests_attempted: number;
+  successful_requests: number;
+  retried_requests: number;
+  timed_out_requests: number;
+  rate_limited_429_count: number;
+  scope_blocked_count: number;
+  error_count: number;
+  concurrency_limit: number;
+  rate_limit_rps: number;
+  was_cancelled: boolean;
+  reliability_status: string;
+}
+
+export interface EvidenceIntelligenceSummary {
+  scan_id: string;
+  total_evidence_records: number;
+  sealed_sha256_count: number;
+  unsealed_count: number;
+  redacted_secrets_confirmed: boolean;
+  source_provenance_breakdown: Record<string, number>;
+  reproducibility_breakdown: Record<string, number>;
+  contradictory_evidence_count: number;
+  missing_evidence_count: number;
+  average_confidence_score: number;
+}
+
+export interface ScanTrendPoint {
+  scan_id: string;
+  target_url: string;
+  created_at: string;
+  status: ScanStatus;
+  total_findings: number;
+  unique_primary_findings: number;
+  critical_high_count: number;
+  coverage_percent: number;
+  duration_seconds: number;
+}
+
+export interface ScanAnalytics {
+  total_scans_analyzed: number;
+  total_findings_across_scans: number;
+  severity_distribution: Record<string, number>;
+  validation_lifecycle_distribution: Record<string, number>;
+  contextual_priority_distribution: Record<string, number>;
+  top_vulnerable_categories: Record<string, number>;
+  technology_risk_patterns: Record<string, number>;
+  endpoint_exposure_breakdown: Record<string, number>;
+  average_dast_coverage_percent: number;
+  scan_trends: ScanTrendPoint[];
+}
+
+export interface ScanComparison {
+  baseline_scan_id: string;
+  current_scan_id: string;
+  baseline_target_url: string;
+  current_target_url: string;
+  new_findings_count: number;
+  resolved_findings_count: number;
+  persisting_findings_count: number;
+  new_finding_fingerprints: string[];
+  resolved_finding_fingerprints: string[];
+  persisting_finding_fingerprints: string[];
+  coverage_delta_percent: number;
+  summary: string;
 }

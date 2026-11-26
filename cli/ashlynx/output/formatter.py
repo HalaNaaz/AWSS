@@ -7,6 +7,7 @@ from shared.schemas.report import SeveritySummarySchema
 from shared.schemas.discovery import TechnologyObservationSchema
 from shared.schemas.finding import FindingResponse
 from shared.schemas.intelligence import ScanIntelligenceSummarySchema
+from shared.schemas.phase6 import SecurityCoverageReportSchema
 
 console = Console()
 
@@ -165,4 +166,23 @@ class TerminalFormatter:
         table.add_row("Confidence Breakdown", str(intel.confidence_breakdown))
         table.add_row("Validation Breakdown", str(intel.validation_state_breakdown))
         table.add_row("Contextual Priority Breakdown", str(intel.contextual_priority_breakdown))
+        console.print(table)
+
+    @staticmethod
+    def render_coverage_summary(cov: SecurityCoverageReportSchema) -> None:
+        table = Table(title=f"OWASP Top 10:2021 Security Coverage ({cov.overall_dast_coverage_percent}%)", border_style="blue")
+        table.add_column("OWASP Category", style="white")
+        table.add_column("Status", style="bold", width=14)
+        table.add_column("Findings", justify="right", width=9)
+        table.add_column("Explanation", style="dim")
+
+        for entry in cov.owasp_categories:
+            st = entry.status.value
+            color = "green" if st == "TESTED" else ("yellow" if st == "PARTIAL" else ("cyan" if st == "SKIPPED" else "red"))
+            table.add_row(
+                f"{entry.owasp_id} {entry.owasp_name}",
+                f"[{color}]{st}[/{color}]",
+                str(entry.findings_detected),
+                entry.explanation,
+            )
         console.print(table)

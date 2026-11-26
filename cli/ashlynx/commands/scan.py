@@ -113,6 +113,8 @@ def run_scan(
         TerminalFormatter.render_severity_summary(report.severity_summary)
         if report.intelligence_summary:
             TerminalFormatter.render_intelligence_summary(report.intelligence_summary)
+        if report.security_coverage:
+            TerminalFormatter.render_coverage_summary(report.security_coverage)
         if report.technologies:
             TerminalFormatter.render_technology_table(report.technologies)
         display_findings = [
