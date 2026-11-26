@@ -190,3 +190,44 @@ def test_scan_lifecycle_registry():
 
     registry.clear()
     assert len(registry.list_jobs()) == 0
+
+
+def test_scan_lifecycle_registry_bounded_retention_evicts_oldest_completed():
+    registry = ScanLifecycleRegistry(max_retained_scans=3)
+    ids = []
+    for idx in range(5):
+        orch = ScanOrchestrator(
+            target_url=f"https://target-{idx}.test",
+            profile=ScanProfile.SAFE_MODE,
+        )
+        orch.status = ScanStatus.COMPLETED
+        registry.register_orchestrator(orch)
+        ids.append(orch.scan_id)
+
+    remaining_ids = {job.id for job in registry.list_jobs()}
+    assert len(remaining_ids) == 3
+    assert ids[0] not in remaining_ids
+    assert ids[1] not in remaining_ids
+    assert set(ids[2:]) == remaining_ids
+
+
+def test_scan_lifecycle_registry_never_evicts_running_scans():
+    registry = ScanLifecycleRegistry(max_retained_scans=2)
+
+    running_orch = ScanOrchestrator(target_url="https://active.test")
+    running_orch.status = ScanStatus.RUNNING
+    registry.register_orchestrator(running_orch)
+
+    completed_1 = ScanOrchestrator(target_url="https://done1.test")
+    completed_1.status = ScanStatus.COMPLETED
+    registry.register_orchestrator(completed_1)
+
+    completed_2 = ScanOrchestrator(target_url="https://done2.test")
+    completed_2.status = ScanStatus.COMPLETED
+    registry.register_orchestrator(completed_2)
+
+    remaining_ids = {job.id for job in registry.list_jobs()}
+    assert len(remaining_ids) == 2
+    assert running_orch.scan_id in remaining_ids
+    assert completed_1.scan_id not in remaining_ids
+    assert completed_2.scan_id in remaining_ids
