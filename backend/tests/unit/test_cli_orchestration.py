@@ -129,3 +129,69 @@ def test_cli_scan_ci_fail_on_findings():
         )
         assert result.exit_code == 1
         assert "CI Gate Failed" in result.output
+
+
+def test_cli_targets_add_list_delete():
+    import json
+    from backend.app.api.v1.endpoints.targets import target_registry
+
+    target_registry.clear(reseed=True)
+
+    add_res = runner.invoke(
+        cli_app,
+        ["targets", "add", "--name", "CLI Staging", "--url", "https://staging.cli.test", "--criticality", "4.0"],
+    )
+    assert add_res.exit_code == 0
+    assert "Registered target" in add_res.output
+
+    list_res = runner.invoke(cli_app, ["targets", "list", "--format", "json"])
+    assert list_res.exit_code == 0
+    items = json.loads(list_res.output)
+    created = next(item for item in items if item["name"] == "CLI Staging")
+    assert created["base_url"] == "https://staging.cli.test"
+
+    del_res = runner.invoke(cli_app, ["targets", "delete", created["id"]])
+    assert del_res.exit_code == 0
+    assert "Deleted target" in del_res.output
+
+
+def test_cli_targets_add_rejects_invalid_url():
+    bad_res = runner.invoke(
+        cli_app,
+        ["targets", "add", "--name", "Invalid Target", "--url", "ftp://invalid.cli.test"],
+    )
+    assert bad_res.exit_code == 1
+    assert "Target validation failed" in bad_res.output
+
+
+def test_cli_report_export_sarif(tmp_path: Path):
+    import json
+    from shared.schemas.common import ScanProfile, ScanStatus
+    from shared.schemas.report import SeveritySummarySchema, UnifiedScanReport
+
+    summary = make_mock_summary(has_high_finding=True)
+    report = UnifiedScanReport(
+        scan_id=summary.scan_id,
+        target_url=summary.target_url,
+        profile=ScanProfile.SAFE_ACTIVE,
+        status=ScanStatus.COMPLETED,
+        urls_crawled=3,
+        endpoints_discovered=3,
+        forms_discovered=0,
+        severity_summary=SeveritySummarySchema.from_findings(summary.findings),
+        findings=summary.findings,
+    )
+    scan_registry.clear()
+    scan_registry.store_report(report)
+
+    sarif_path = tmp_path / "scan_results.sarif"
+    res = runner.invoke(
+        cli_app,
+        ["report", "export", str(summary.scan_id), "-f", "sarif", "-o", str(sarif_path)],
+    )
+    assert res.exit_code == 0
+    assert sarif_path.exists()
+    sarif_data = json.loads(sarif_path.read_text(encoding="utf-8"))
+    assert sarif_data["version"] == "2.1.0"
+    assert len(sarif_data["runs"][0]["results"]) == 1
+    assert sarif_data["runs"][0]["results"][0]["level"] == "error"
