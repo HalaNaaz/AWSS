@@ -85,12 +85,15 @@ class JSStaticIntelligenceAnalyzer:
             js_content = js_content[:cls.MAX_JS_ANALYSIS_SIZE]
 
         # 1. Extract API & Candidate Route Endpoints
+        static_exts = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".css", ".ico", ".woff", ".woff2", ".ttf", ".eot")
         for pattern in cls.API_PATTERNS:
             for match in pattern.findall(js_content):
                 endpoint_str = match.strip()
-                if endpoint_str.endswith((".png", ".jpg", ".svg", ".css", ".ico", ".woff", ".woff2", ".ttf")):
+                if len(endpoint_str) < 2 or any(ch in endpoint_str for ch in (" ", "\n", "\r", "\t", "<", ">", "\\", "${")):
                     continue
-                if len(endpoint_str) < 2 or " " in endpoint_str or "\n" in endpoint_str:
+                if not (endpoint_str.startswith(("/", "http://", "https://"))):
+                    continue
+                if urlparse(endpoint_str).path.lower().endswith(static_exts):
                     continue
 
                 normalized = URLNormalizer.normalize_url(endpoint_str, base_url)

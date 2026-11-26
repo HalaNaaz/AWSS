@@ -70,3 +70,21 @@ def test_js_static_intelligence_zero_dynamic_execution(scope_gate):
         scope_gate=scope_gate
     )
     assert isinstance(result.endpoints, set)
+
+
+def test_js_static_intelligence_filters_malformed_and_static_routes(scope_gate):
+    noisy_js = """
+    fetch('/api/v1/orders');
+    axios.get('/api/v1/orders');
+    fetch('/api/v1/users/${userId}');
+    fetch('/static/theme.css?v=1.2.3');
+    fetch('application/json');
+    fetch('/bad\\troute');
+    """
+    result = JSStaticIntelligenceAnalyzer.analyze_js(
+        js_content=noisy_js,
+        base_url="https://example.com",
+        scope_gate=scope_gate,
+    )
+    assert result.endpoints == {"https://example.com/api/v1/orders"}
+    assert "https://example.com/api/v1/orders" in result.api_routes
