@@ -86,6 +86,7 @@ export default function OverviewDashboard() {
   // Findings Drawer Filter State
   const [severityFilter, setSeverityFilter] = useState<string>("ALL");
   const [expandedFindingId, setExpandedFindingId] = useState<string | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   // Load existing scans from backend
   const loadScans = async () => {
@@ -204,19 +205,21 @@ export default function OverviewDashboard() {
 
   const handleViewFindings = async (scanId: string) => {
     try {
+      setDashboardError(null);
       const findings = await fetchApi<Finding[]>(`/scans/${scanId}/findings`);
       setSelectedScanFindings({ scanId, findings: findings || [] });
     } catch (err: any) {
-      alert(`Could not retrieve findings: ${err?.message || "Unknown error"}`);
+      setDashboardError(`Could not retrieve findings: ${err?.message || "Unknown error"}`);
     }
   };
 
   const handleCancelScan = async (scanId: string) => {
     try {
+      setDashboardError(null);
       await fetchApi(`/scans/${scanId}/cancel`, { method: "POST" });
       await loadScans();
     } catch (err: any) {
-      alert(`Failed to cancel scan: ${err?.message}`);
+      setDashboardError(`Failed to cancel scan: ${err?.message || "Unknown error"}`);
     }
   };
 
@@ -248,6 +251,18 @@ export default function OverviewDashboard() {
           </div>
         }
       />
+
+      {dashboardError && (
+        <div
+          role="alert"
+          className="p-3 border border-[#F87171] bg-[#FEE2E2] dark:bg-[#2B0F10] flex items-center justify-between gap-3 text-xs font-mono text-[#C62828] dark:text-[#FF5252]"
+        >
+          <span>OPERATION ERROR // {dashboardError}</span>
+          <Button onClick={() => setDashboardError(null)} variant="outline" size="sm">
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       {/* ====================================================================
           PANEL 2: RATIONAL METRIC MATRIX (6 Columns, Precision Tabular Values)
@@ -714,6 +729,14 @@ export default function OverviewDashboard() {
                 className="px-2.5 py-1 text-xs font-mono font-semibold uppercase border border-swiss-border bg-surface hover:bg-surface-subtle text-ink-primary transition-colors"
               >
                 Markdown
+              </a>
+              <a
+                href={`http://localhost:8000/api/v1/reports/${selectedScanFindings.scanId}?format=sarif&download=true`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1 text-xs font-mono font-semibold uppercase border border-swiss-border bg-surface hover:bg-surface-subtle text-ink-primary transition-colors"
+              >
+                SARIF
               </a>
             </div>
 
