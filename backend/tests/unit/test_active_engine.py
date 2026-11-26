@@ -128,3 +128,43 @@ async def test_active_detection_engine_cancellation():
     )
 
     assert len(findings) == 0
+
+
+@pytest.mark.asyncio
+async def test_misconfiguration_analyzer_empty_and_malformed_responses():
+    from backend.app.scanner.active.analyzers.misconfiguration import MisconfigurationAnalyzer
+
+    analyzer = MisconfigurationAnalyzer()
+    budget = RequestBudgetTracker(budget=10)
+    mock_client = MagicMock()
+    mock_client.request = AsyncMock(return_value=(MagicMock(status_code=200, headers=None, text=""), None))
+    mock_client.get = AsyncMock(return_value=(None, "timeout"))
+
+    malformed_target = ActiveTarget(url="/relative-only", method="GET")
+    assert await analyzer.check(malformed_target, mock_client, budget, uuid4()) == []
+
+    empty_resp_target = ActiveTarget(url="https://example.com/", method="GET", baseline_body="", parameters={"next": "/home"})
+    findings = await analyzer.check(empty_resp_target, mock_client, budget, uuid4())
+    assert findings == []
+
+
+@pytest.mark.asyncio
+async def test_sqli_analyzer_empty_response_and_parameter_fallback():
+    from backend.app.scanner.active.analyzers.sqli import SQLInjectionAnalyzer
+
+    analyzer = SQLInjectionAnalyzer()
+    budget = RequestBudgetTracker(budget=10)
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(return_value=(MagicMock(status_code=500, text=None), None))
+
+    target_no_query = ActiveTarget(
+        url="https://example.com/search",
+        method="GET",
+        parameters={"q": "books"},
+        baseline_body="OK",
+        baseline_status=200,
+    )
+    findings = await analyzer.check(target_no_query, mock_client, budget, uuid4())
+    assert findings == []
+    assert budget.total_sent >= 1
+    assert "q=books" in mock_client.get.call_args_list[0][0][0]
