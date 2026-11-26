@@ -24,6 +24,7 @@ interface ScanJob {
 export default function ScansPage() {
   const [scans, setScans] = useState<ScanJob[]>([]);
   const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const loadScans = async () => {
     try {
@@ -32,8 +33,9 @@ export default function ScansPage() {
       if (Array.isArray(res)) {
         setScans(res);
       }
-    } catch {
-      // Ignored
+      setApiError(null);
+    } catch (err: any) {
+      setApiError(err?.message || "Unable to synchronize scan registry with backend API.");
     } finally {
       setLoading(false);
     }
@@ -42,9 +44,10 @@ export default function ScansPage() {
   const handleCancelScan = async (scanId: string) => {
     try {
       await fetchApi(`/scans/${scanId}/cancel`, { method: "POST" });
+      setApiError(null);
       await loadScans();
-    } catch {
-      // Error surfaced cleanly via refresh/registry state
+    } catch (err: any) {
+      setApiError(err?.message || "Failed to cancel scan job.");
     }
   };
 
@@ -81,6 +84,18 @@ export default function ScansPage() {
           </div>
         }
       />
+
+      {apiError && (
+        <div
+          role="alert"
+          className="p-3 border border-[#F87171] bg-[#FEE2E2] dark:bg-[#2B0F10] flex items-center justify-between gap-3 text-xs font-mono text-[#C62828] dark:text-[#FF5252]"
+        >
+          <span>SYNC WARNING // {apiError}</span>
+          <Button onClick={loadScans} variant="outline" size="sm">
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Scans Registry Table */}
       <div className="border border-swiss-border bg-surface overflow-hidden">

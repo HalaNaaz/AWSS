@@ -39,6 +39,7 @@ export default function TargetsPage() {
   const [url, setUrl] = useState("");
   const [desc, setDesc] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadTargets = async () => {
@@ -47,8 +48,9 @@ export default function TargetsPage() {
       if (Array.isArray(res) && res.length > 0) {
         setTargets(res);
       }
-    } catch {
-      // Retain default view if backend is temporarily unreachable
+      setSyncError(null);
+    } catch (err: any) {
+      setSyncError(err?.message || "Unable to synchronize target inventory with backend API.");
     }
   };
 
@@ -120,6 +122,18 @@ export default function TargetsPage() {
           </Button>
         }
       />
+
+      {syncError && (
+        <div
+          role="alert"
+          className="p-3 border border-[#F87171] bg-[#FEE2E2] dark:bg-[#2B0F10] flex items-center justify-between gap-3 text-xs font-mono text-[#C62828] dark:text-[#FF5252]"
+        >
+          <span>INVENTORY SYNC WARNING // {syncError}</span>
+          <Button onClick={loadTargets} variant="outline" size="sm">
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Targets Modular Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
