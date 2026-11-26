@@ -74,7 +74,9 @@ class SQLInjectionAnalyzer(BaseActiveAnalyzer):
 
         base_url = target.url
         parsed = urllib.parse.urlparse(base_url)
-        orig_params = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        orig_params = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True) or list(
+            target.parameters.items()
+        )
 
         for param_name, orig_val in orig_params:
             if not budget.can_request():
@@ -95,10 +97,11 @@ class SQLInjectionAnalyzer(BaseActiveAnalyzer):
 
             budget.consume(1)
             resp, _ = await client.get(probe_url)
-            if not resp or not resp.text:
+            resp_text = getattr(resp, "text", None) if resp else None
+            if not resp or not resp_text:
                 continue
 
-            has_err, db_type = self._detect_db_error(resp.text)
+            has_err, db_type = self._detect_db_error(resp_text)
             baseline_had_err, _ = self._detect_db_error(target.baseline_body or "")
 
             if has_err and not baseline_had_err:

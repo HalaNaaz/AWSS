@@ -71,6 +71,8 @@ class MisconfigurationAnalyzer(BaseActiveAnalyzer):
     ) -> List[ActiveFinding]:
         findings: List[ActiveFinding] = []
         parsed = urllib.parse.urlparse(target.url)
+        if not parsed.scheme or not parsed.netloc:
+            return findings
         base_origin = f"{parsed.scheme}://{parsed.netloc}"
 
         # 1. Directory Listing Check
@@ -102,7 +104,8 @@ class MisconfigurationAnalyzer(BaseActiveAnalyzer):
             budget.consume(1)
             options_resp, _ = await client.request("OPTIONS", target.url)
             if options_resp:
-                allow_header = options_resp.headers.get("allow", "").upper()
+                options_headers = getattr(options_resp, "headers", None) or {}
+                allow_header = (options_headers.get("allow") or "").upper()
                 if "TRACE" in allow_header:
                     findings.append(
                         ActiveFinding(
@@ -200,7 +203,8 @@ class MisconfigurationAnalyzer(BaseActiveAnalyzer):
                     budget.consume(1)
                     resp, _ = await client.request("GET", test_url, follow_redirects=False)
                     if resp and resp.status_code in (301, 302, 303, 307, 308):
-                        loc = resp.headers.get("location", "")
+                        resp_headers = getattr(resp, "headers", None) or {}
+                        loc = resp_headers.get("location") or ""
                         if loc.startswith("https://example.org") or loc.startswith("//example.org"):
                             findings.append(
                                 ActiveFinding(
