@@ -41,3 +41,25 @@ def test_scope_gate_redirect_to_private_subnet():
     with pytest.raises(ScopeViolationError):
         # Redirecting to private IP is out-of-scope and rejected
         gate.validate_redirect("http://10.0.0.1/internal-dashboard")
+
+
+@pytest.mark.asyncio
+async def test_crawler_client_rejects_unsupported_schemes_before_pin_lookup():
+    """Validates non-HTTP(S) schemes are blocked prior to DNS resolution or pin lookup."""
+    gate = ScopeGate(target_base_url="https://authorized.example.com")
+    async with AsyncHTTPClient(scope_gate=gate) as client:
+        for bad_url in ("ftp://authorized.example.com/dump", "file:///etc/passwd", "javascript:alert(1)"):
+            resp, err = await client.get(bad_url)
+            assert resp is None
+            assert err is not None
+            assert "Unsupported or malformed URL" in err
+        assert client.metrics["scope_blocked"] == 3
+
+
+def test_pinning_backend_normalizes_hostname_case():
+    from backend.app.scanner.crawler.client import PinningNetworkBackend
+
+    backend = PinningNetworkBackend({"api.example.com": "93.184.216.34"})
+    host = "API.EXAMPLE.COM."
+    normalized = host.strip().rstrip(".").lower()
+    assert (backend.pin_map.get(host) or backend.pin_map.get(normalized)) == "93.184.216.34"

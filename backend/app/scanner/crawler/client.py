@@ -27,7 +27,8 @@ class PinningNetworkBackend(httpcore._backends.anyio.AnyIOBackend):
         local_address: Optional[str] = None,
         socket_options: Any = None,
     ):
-        pinned = self.pin_map.get(host, host)
+        normalized = host.strip().rstrip(".").lower()
+        pinned = self.pin_map.get(host) or self.pin_map.get(normalized, host)
         return await super().connect_tcp(
             host=pinned,
             port=port,
@@ -131,6 +132,15 @@ class AsyncHTTPClient:
         redirect_count = 0
 
         while redirect_count <= self.max_redirects:
+            parsed_req = urlparse(current_url)
+            scheme = parsed_req.scheme.lower()
+            hostname = (parsed_req.hostname or "").strip().rstrip(".").lower()
+            if scheme not in {"http", "https"} or not hostname:
+                self.metrics["scope_blocked"] += 1
+                err_msg = f"Unsupported or malformed URL scheme/host rejected before pin lookup: '{current_url}'"
+                logger.warning(f"[AsyncHTTPClient] Security Gate Blocked request: {err_msg}")
+                return None, err_msg
+
             # Step 1: Pre-flight Scope and Anti-SSRF check
             try:
                 pinned_ip = self.scope_gate.pre_flight_check(current_url)
