@@ -8,94 +8,77 @@
 ## 1. Monorepo Organization Overview
 
 ```
-ashlynx-websec-scanner/
+AWSS/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml               # Automated CI quality and security checks
+│       └── ci.yml               # GitHub Actions backend/CLI/frontend CI & Bandit SAST
 ├── backend/
+│   ├── alembic/                 # Database migration configuration & scripts
 │   ├── app/
-│   │   ├── api/
-│   │   │   └── v1/
-│   │   │       ├── endpoints/   # Health, Scans, Findings API routers
-│   │   │       └── api.py       # API v1 router aggregator
-│   │   ├── audit/               # Immutable audit logging subsystem
+│   │   ├── api/v1/
+│   │   │   ├── endpoints/       # health, targets, scans, findings, recon, passive, active, discovery, analytics, reports
+│   │   │   └── api.py           # API v1 router aggregator
 │   │   ├── core/                # Configuration, logging, exception hierarchy
 │   │   ├── db/                  # SQLAlchemy async session & declarative base
-│   │   ├── middleware/          # Security headers & correlation ID middleware
+│   │   ├── middleware/          # Security headers, correlation ID, local boundary & token auth
 │   │   ├── models/              # Relational database ORM entities
-│   │   ├── plugins/             # Extensible vulnerability plugins
-│   │   ├── reporting/           # PDF, HTML, Markdown, SARIF export generators
-│   │   ├── risk/                # CVSS 4.0 and risk calculation engine
-│   │   ├── scanner/
-│   │   │   ├── crawler/         # Async HTTP crawler & JS AST parser
-│   │   │   ├── evidence/        # Evidence redactor & SHA-256 seal generator
-│   │   │   ├── fingerprinting/  # Technology & banner analysis
-│   │   │   ├── headers/         # Security header auditor
-│   │   │   ├── orchestrator/    # Scan state machine & worker dispatch
-│   │   │   ├── reconnaissance/  # Metadata, robots.txt & sitemap ingestion
-│   │   │   ├── scope/           # ScopeGate Anti-SSRF socket pinning
-│   │   │   ├── tls/             # TLS/SSL baseline configuration auditor
-│   │   │   ├── verification/    # Two-Phase deterministic verification engine
-│   │   │   └── vulnerabilities/ # Active injection detection modules
-│   │   ├── schemas/             # Backend-specific validation schemas
-│   │   └── main.py              # FastAPI application entry point
-│   ├── tests/
-│   │   ├── fixtures/            # Testbed fixtures and mock payloads
-│   │   ├── integration/         # Integration test suite
-│   │   ├── unit/                # Unit tests for ScopeGate, Health, Redactor
-│   │   └── conftest.py          # Pytest fixtures and async test client
+│   │   ├── reporting/           # JSON, HTML, Markdown, and SARIF 2.1.0 generators
+│   │   └── scanner/
+│   │       ├── active/          # ActiveDetectionEngine, Safe Active Analyzers & Registry
+│   │       ├── passive/         # PassiveAnalysisEngine (headers, cookies, CORS, cache, auth, DOM)
+│   │       ├── crawler/         # Hardened AsyncHTTPClient (pinning), normalizer, robots/sitemap
+│   │       ├── discovery/       # AttackSurfaceIntelligenceEngine, JS AST analyzer, topology graph
+│   │       ├── evidence/        # EvidenceRedactor & SHA-256 chain-of-custody sealer
+│   │       ├── intelligence/    # Phase 5 AVIVE & Phase 6 Planner / Coverage / Analytics
+│   │       ├── orchestration/   # ScanOrchestrator & bounded ScanLifecycleRegistry
+│   │       ├── reconnaissance/  # ReconOrchestrator
+│   │       └── scope/           # ScopeGate Anti-SSRF socket pinning
+│   ├── tests/                   # Unit & integration test suites
 │   ├── pyproject.toml           # Backend packaging & tool configurations
-│   ├── pytest.ini               # Pytest runtime configuration
+│   ├── pytest.ini               # Backend pytest configuration
 │   └── requirements.txt         # Pinned backend dependencies
 ├── cli/
 │   ├── ashlynx/
-│   │   ├── commands/            # CLI subcommands (scan, report)
-│   │   ├── config/              # CLI runtime settings
-│   │   ├── output/              # Rich color-coded terminal formatters
-│   │   ├── services/            # Client HTTP adapters
+│   │   ├── commands/            # scan, recon, attack_surface, targets, findings, analytics, report
+│   │   ├── output/              # Rich terminal tables and formatters
 │   │   └── main.py              # Typer CLI application entry point
-│   ├── tests/                   # CLI unit and command tests
-│   ├── pyproject.toml           # CLI packaging manifest
-│   └── requirements.txt         # CLI dependencies
+│   └── tests/                   # CLI unit tests
 ├── frontend/
-│   ├── app/
-│   │   ├── globals.css          # Tailwind CSS definitions
-│   │   ├── layout.tsx           # Dashboard root layout & navigation
-│   │   ├── page.tsx             # Security Overview Dashboard
-│   │   ├── error.tsx            # Global error boundary
-│   │   └── not-found.tsx        # 404 page
-│   ├── components/ui/           # Reusable UI component library
-│   ├── features/                # Feature-specific components
-│   ├── hooks/                   # Custom React hooks
-│   ├── lib/                     # Client utilities
-│   ├── public/                  # Static assets & brand icons
-│   ├── services/                # API client connection layer
-│   ├── styles/                  # Additional stylesheets
-│   ├── types/                   # Frontend TypeScript interfaces
+│   ├── app/                     # Next.js 15 App Router (/, targets, scans, attack-surface, findings, analytics, reports)
+│   ├── components/              # AppShell, navigation, Swiss Technical Grid UI primitives
+│   ├── services/                # Backend REST API fetch wrapper
+│   ├── types/                   # TypeScript domain models
 │   ├── next.config.mjs          # Next.js configuration
 │   ├── package.json             # NPM package manifest
-│   ├── postcss.config.mjs       # PostCSS configuration
-│   ├── tailwind.config.ts       # Tailwind CSS configuration
-│   └── tsconfig.json            # TypeScript configuration
+│   └── tailwind.config.ts       # Tailwind CSS design tokens
 ├── shared/
 │   ├── contracts/               # Shared API contract specifications
-│   ├── schemas/                 # Shared Pydantic data schemas
-│   └── types/                   # Shared TypeScript models (mirrored)
+│   ├── schemas/                 # Canonical Pydantic v2 schemas
+│   └── types/                   # Mirrored TypeScript definitions
 ├── infrastructure/
-│   ├── deployment/              # Kubernetes manifests & deployment templates
-│   ├── docker/                  # Dockerfiles (backend, frontend, cli)
-│   └── scripts/                 # Database initialization & maintenance scripts
+│   ├── deployment/              # Deployment manifests & templates
+│   ├── docker/                  # Dockerfiles
+│   └── scripts/                 # Database & setup scripts
+├── tests/
+│   ├── e2e/                     # Chrome Playwright end-to-end QA suite
+│   ├── fixtures/                # Controlled local test target fixtures
+│   └── operational/             # Operational scanner & security validation suite
+├── audit_evidence/              # Reproducible audit runners, canonical logs, and UI screenshots
 ├── docs/
-│   ├── architecture/            # Architecture specifications & ADRs
-│   ├── security/                # Threat models & security policies
-│   ├── api/                     # REST API reference documentation
-│   ├── database/                # Schema DDL & entity documentation
-│   ├── testing/                 # Quality assurance & benchmarking plans
-│   └── development/             # Local setup & developer guides
-├── .env.example                 # Environment configuration template
-├── .gitignore                   # Git ignore patterns
-├── AGENTS.md                    # Coding directives for AI agents
-├── docker-compose.yml           # Local multi-service development compose
-├── PRD.md                       # Authoritative Master PRD (Read-Only)
-└── README.md                    # Project overview & quickstart
+│   ├── api/                     # REST API specification
+│   ├── architecture/            # Architecture, ADRs, roadmap, and phase specifications
+│   ├── archive/phases/          # Archived Phase 1–7 implementation reports & matrices
+│   ├── audit/                   # End-to-end audit reports, findings register, remediation logs
+│   ├── database/                # Database schema documentation
+│   ├── development/             # Local setup & developer guides
+│   ├── releases/                # Release readiness & verification reports
+│   ├── security/                # Security architecture & STRIDE threat model
+│   └── testing/                 # QA strategy & test matrices
+├── .env.example                 # Safe configuration template
+├── .gitignore                   # Ignore rules
+├── AGENTS.md                    # Developer & AI agent invariants
+├── docker-compose.yml           # Local Postgres & Redis service compose
+├── PRD.md                       # Authoritative Master Product Requirements Document
+├── pytest.ini                   # Root pytest & asyncio loop scope configuration
+└── README.md                    # Repository overview, quickstart & policy
 ```
