@@ -451,21 +451,55 @@ class ScanOrchestrator:
 class ScanLifecycleRegistry:
     """Thread-safe in-memory registry managing scan jobs, active orchestrators, unified reports, and discovery engines."""
 
-    def __init__(self):
+    DEFAULT_MAX_RETAINED_SCANS = 100
+
+    def __init__(self, max_retained_scans: int = DEFAULT_MAX_RETAINED_SCANS):
+        self.max_retained_scans = max(1, int(max_retained_scans))
         self._jobs: Dict[UUID, ScanJobResponse] = {}
         self._orchestrators: Dict[UUID, ScanOrchestrator] = {}
         self._reports: Dict[UUID, UnifiedScanReport] = {}
         self._discovery_engines: Dict[UUID, AttackSurfaceIntelligenceEngine] = {}
         self._standalone_findings: Dict[UUID, FindingResponse] = {}
 
+    def _evict_scan(self, scan_id: UUID) -> None:
+        self._jobs.pop(scan_id, None)
+        self._orchestrators.pop(scan_id, None)
+        self._reports.pop(scan_id, None)
+        self._discovery_engines.pop(scan_id, None)
+        stale_finding_ids = [
+            fid for fid, finding in self._standalone_findings.items() if finding.scan_id == scan_id
+        ]
+        for fid in stale_finding_ids:
+            self._standalone_findings.pop(fid, None)
+
+    def _enforce_retention_bounds(self) -> None:
+        """Evicts oldest completed/terminal scans once capacity exceeds max_retained_scans, never dropping RUNNING scans."""
+        tracked_ids = list(dict.fromkeys(list(self._jobs.keys()) + list(self._reports.keys())))
+        if len(tracked_ids) <= self.max_retained_scans:
+            return
+
+        excess = len(tracked_ids) - self.max_retained_scans
+        for sid in tracked_ids:
+            if excess <= 0:
+                break
+            orch = self._orchestrators.get(sid)
+            job = self._jobs.get(sid)
+            current_status = orch.status if orch else (job.status if job else ScanStatus.COMPLETED)
+            if current_status == ScanStatus.RUNNING:
+                continue
+            self._evict_scan(sid)
+            excess -= 1
+
     def register_job(self, job: ScanJobResponse) -> None:
         self._jobs[job.id] = job
+        self._enforce_retention_bounds()
 
     def register_orchestrator(self, orchestrator: ScanOrchestrator) -> None:
         self._orchestrators[orchestrator.scan_id] = orchestrator
         self._jobs[orchestrator.scan_id] = orchestrator.get_job_response()
         if orchestrator.discovery_engine:
             self._discovery_engines[orchestrator.scan_id] = orchestrator.discovery_engine
+        self._enforce_retention_bounds()
 
     def register_discovery_engine(self, scan_id: UUID, engine: AttackSurfaceIntelligenceEngine) -> None:
         self._discovery_engines[scan_id] = engine
@@ -500,6 +534,7 @@ class ScanLifecycleRegistry:
             job.duration_seconds = report.duration_seconds
             job.urls_crawled = report.urls_crawled
             job.findings_count = len(report.findings)
+        self._enforce_retention_bounds()
 
     def get_report(self, scan_id: UUID) -> Optional[UnifiedScanReport]:
         if scan_id in self._reports:
