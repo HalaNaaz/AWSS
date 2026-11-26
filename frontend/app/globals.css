@@ -2,16 +2,170 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   SWISS TECHNICAL GRID — DESIGN TOKENS
+   Light Theme (Default) and Dark Theme via CSS Variables
+   ========================================================================== */
+
 :root {
-  --background: #090d16;
-  --foreground: #f1f5f9;
-  --card-bg: #111827;
-  --border-color: #1f2937;
+  /* LIGHT THEME (DEFAULT) */
+  --canvas: #F5F5F3;
+  --surface: #FFFFFF;
+  --surface-subtle: #F0F0EE;
+  --surface-elevated: #FFFFFF;
+  
+  --text-primary: #111111;
+  --text-secondary: #525252;
+  --text-muted: #737373;
+  
+  --border-swiss: #D9D9D6;
+  --border-subtle: #E8E8E5;
+  --border-strong: #111111;
+  
+  --accent: #E53935;
+  --accent-hover: #C62828;
+  --accent-subtle: #FEECEB;
+  
+  --color-critical: #C62828;
+  --color-high: #E53935;
+  --color-medium: #D97706;
+  --color-low: #2563EB;
+  --color-info: #64748B;
+  --color-success: #15803D;
+
+  --badge-critical-bg: #FEE2E2;
+  --badge-critical-border: #F87171;
+  --badge-high-bg: #FFEBEE;
+  --badge-high-border: #FCA5A5;
+  --badge-medium-bg: #FEF3C7;
+  --badge-medium-border: #FCD34D;
+  --badge-low-bg: #EFF6FF;
+  --badge-low-border: #93C5FD;
+  --badge-info-bg: #F1F5F9;
+  --badge-info-border: #CBD5E1;
+  --badge-success-bg: #ECFDF5;
+  --badge-success-border: #6EE7B7;
+}
+
+.dark {
+  /* DARK THEME */
+  --canvas: #0D0F12;
+  --surface: #15181E;
+  --surface-subtle: #1C2027;
+  --surface-elevated: #222731;
+  
+  --text-primary: #F5F5F5;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  
+  --border-swiss: #262B35;
+  --border-subtle: #1C2027;
+  --border-strong: #E5E7EB;
+  
+  --accent: #FF453A;
+  --accent-hover: #E53935;
+  --accent-subtle: #2A1515;
+  
+  --color-critical: #FF5252;
+  --color-high: #FF6E6A;
+  --color-medium: #FBBF24;
+  --color-low: #60A5FA;
+  --color-info: #94A3B8;
+  --color-success: #4ADE80;
+
+  --badge-critical-bg: #2B0F10;
+  --badge-critical-border: #5C1D1E;
+  --badge-high-bg: #2A1313;
+  --badge-high-border: #5A2020;
+  --badge-medium-bg: #291B07;
+  --badge-medium-border: #52380E;
+  --badge-low-bg: #0C1A30;
+  --badge-low-border: #1E3A8A;
+  --badge-info-bg: #141A23;
+  --badge-info-border: #334155;
+  --badge-success-bg: #092015;
+  --badge-success-border: #065F46;
+}
+
+/* ==========================================================================
+   BASE & TYPOGRAPHY SYSTEM
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--canvas);
+  color: var(--text-primary);
+  font-family: var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+}
+
+/* Tabular numerals for precision alignment in security data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Structural 1px Swiss Technical Borders */
+.swiss-border {
+  border: 1px solid var(--border-swiss);
+}
+
+.swiss-border-t {
+  border-top: 1px solid var(--border-swiss);
+}
+
+.swiss-border-b {
+  border-bottom: 1px solid var(--border-swiss);
+}
+
+.swiss-border-l {
+  border-left: 1px solid var(--border-swiss);
+}
+
+.swiss-border-r {
+  border-right: 1px solid var(--border-swiss);
+}
+
+/* Precision scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-subtle);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-swiss);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Focus styles for strict accessibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Transitions - restrained and fast (150ms-250ms) */
+.swiss-transition {
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

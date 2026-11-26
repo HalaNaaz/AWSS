@@ -121,6 +121,13 @@ def test_cancel_scan_job(client: TestClient):
     assert cancel_resp.json()["data"]["status"] == "CANCELLED"
 
 
+def test_create_scan_job_rejects_empty_and_invalid_urls(client: TestClient):
+    assert client.post("/api/v1/scans/", json={}).status_code == 422
+    assert client.post("/api/v1/scans/", json={"target_url": ""}).status_code == 422
+    assert client.post("/api/v1/scans/", json={"target_url": "javascript:alert(1)"}).status_code == 422
+    assert client.post("/api/v1/scans/", json={"target_url": "file:///etc/passwd"}).status_code == 422
+
+
 def test_scan_not_found(client: TestClient):
     random_id = uuid4()
     resp = client.get(f"/api/v1/scans/{random_id}")
@@ -128,3 +135,30 @@ def test_scan_not_found(client: TestClient):
 
     rep_resp = client.get(f"/api/v1/reports/{random_id}")
     assert rep_resp.status_code == 404
+
+
+def test_local_boundary_and_api_token_enforcement(client: TestClient, monkeypatch):
+    from backend.app.core.config import settings
+
+    # 1. Default loopback-only HOST invariant
+    assert settings.HOST == "127.0.0.1" or settings.ENFORCE_LOCAL_BOUNDARY is True
+
+    # 2. Remote forwarded client rejected when no API_AUTH_TOKEN is configured
+    monkeypatch.setattr(settings, "API_AUTH_TOKEN", None)
+    monkeypatch.setattr(settings, "ENFORCE_LOCAL_BOUNDARY", True)
+    remote_resp = client.get("/api/v1/scans/", headers={"X-Forwarded-For": "203.0.113.45"})
+    assert remote_resp.status_code == 403
+    assert remote_resp.json()["error_code"] == "LOCAL_BOUNDARY_VIOLATION"
+
+    # Loopback forwarded client allowed locally
+    local_resp = client.get("/api/v1/scans/", headers={"X-Forwarded-For": "127.0.0.1"})
+    assert local_resp.status_code == 200
+
+    # 3. Configured API_AUTH_TOKEN requires valid Bearer or X-API-Key token
+    monkeypatch.setattr(settings, "API_AUTH_TOKEN", "ashlynx_test_secret_token_99")
+    assert client.get("/api/v1/scans/").status_code == 401
+    assert client.get("/api/v1/scans/", headers={"Authorization": "Bearer wrong"}).status_code == 401
+    assert client.get("/api/v1/scans/", headers={"Authorization": "Bearer ashlynx_test_secret_token_99"}).status_code == 200
+    assert client.get("/api/v1/scans/", headers={"X-API-Key": "ashlynx_test_secret_token_99"}).status_code == 200
+    # Health probes remain accessible for orchestrator liveness checks
+    assert client.get("/healthz").status_code == 200

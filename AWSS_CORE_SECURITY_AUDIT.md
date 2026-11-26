@@ -1,0 +1,12 @@
+# AWSS-CORE — SECURITY AUDIT REPORT
+
+## 1. Security Invariants Verified
+| Domain | Control Tested | Verification Method & Result | Status |
+|---|---|---|---|
+| **Anti-SSRF & ScopeGate** | Private/Loopback/Metadata/IPv6-Mapped IP blocking | Blocked all 11 tested CIDRs (`127.0.0.1`, `10.0.0.1`, `172.16.5.5`, `192.168.1.1`, `169.254.169.254`, `0.0.0.0`, `::1`, `::ffff:127.0.0.1`, `::ffff:169.254.169.254`, `fe80::1`, `fc00::1`) when `allow_private_ips=False`; permitted `93.184.216.34`; blocked out-of-scope redirect `evil.outside.com`. | **PASS** |
+| **Local Boundary & API Auth (`SEC-AUTH-01`)** | `HOST=127.0.0.1` default + `LocalBoundaryAndAuthMiddleware` | Default `HOST` hardened from `0.0.0.0` to `127.0.0.1`. Remote forwarded IP (`X-Forwarded-For: 203.0.113.10`) rejected with HTTP `403` (`LOCAL_BOUNDARY_VIOLATION`) live and in `pytest`; configured `API_AUTH_TOKEN` enforces constant-time Bearer/`X-API-Key` validation (`401` on invalid/missing, `200` on valid). *(Multi-user JWT/RBAC remains V3 roadmap scope per `PRD.md`.)* | **CLOSED** |
+| **Security Headers & CORS** | `SecurityHeadersMiddleware`, `CorrelationIdMiddleware`, `CORSMiddleware` | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Strict-Transport-Security`, `X-Correlation-ID` verified; untrusted `Origin: https://evil.attacker.invalid` denied (`acao=None`); `http://localhost:3000` permitted. | **PASS** |
+| **Report & Frontend XSS** | `html.escape()` in `HTMLReportGenerator` + React TSX static scan + iframe sandbox | Untrusted `<ashxtag>` escaped to `&lt;ashxtag&gt;`; 0 `dangerouslySetInnerHTML`/`innerHTML`/`eval` usages in `frontend/`; `<iframe sandbox="">` applied to HTML preview in `/reports`. | **PASS** |
+| **Evidence Privacy & Integrity** | `EvidenceRedactor` + SHA-256 + `ReportManager` path traversal guard | Masked Bearer tokens, cookies, JSON secrets, `.env` keys, CC numbers; identical 64-char SHA-256 seals; blocked `../../evil.json`. | **PASS** |
+| **Safety Gate (API & CLI)** | `authorized=False` / missing `--authorized` | API `POST /api/v1/active/probe` returned HTTP 403; CLI `scan` without `-a` exited `2`. | **PASS** |
+| **Frontend Dependencies (`DEP-NPM-01`)** | `npm audit --json` | Upgraded `next` & `eslint-config-next` to `^15.5.29` and pinned `postcss@^8.5.33` override; `npm audit` reports **0 vulnerabilities** (`critical: 0, high: 0, moderate: 0, low: 0`, `FINAL_AUDIT_EXIT=0`). | **CLOSED** |

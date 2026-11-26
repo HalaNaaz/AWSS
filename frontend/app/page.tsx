@@ -4,6 +4,26 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { fetchApi } from "../services/api-client";
 import type { Finding } from "../types/models";
+import {
+  SeverityBadge,
+  StatusBadge,
+  Button,
+  MetricCell,
+  PanelHeader,
+} from "../components/ui/swiss-components";
+import {
+  ShieldAlert,
+  Target as TargetIcon,
+  Crosshair,
+  ExternalLink,
+  Lock,
+  Layers,
+  Terminal,
+  Clock,
+  Radio,
+  FileText,
+  AlertTriangle,
+} from "lucide-react";
 
 interface Target {
   id: string;
@@ -85,11 +105,9 @@ export default function OverviewDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Compute severity statistics across all scans
   const totalFindings = scans.reduce((acc, s) => acc + (s.findings_count || 0), 0);
   const activeScansCount = scans.filter((s) => s.status === "RUNNING" || s.status === "QUEUED").length;
 
-  // Handle Scan Launch
   const handleLaunchScan = async (e: React.FormEvent) => {
     e.preventDefault();
     setScanFormError(null);
@@ -126,7 +144,6 @@ export default function OverviewDashboard() {
     }
   };
 
-  // Handle Target Registration
   const handleRegisterTarget = (e: React.FormEvent) => {
     e.preventDefault();
     setTargetFormError(null);
@@ -158,7 +175,6 @@ export default function OverviewDashboard() {
     setTargetDesc("");
   };
 
-  // Handle View Findings
   const handleViewFindings = async (scanId: string) => {
     try {
       const findings = await fetchApi<Finding[]>(`/scans/${scanId}/findings`);
@@ -168,7 +184,6 @@ export default function OverviewDashboard() {
     }
   };
 
-  // Handle Cancel Scan
   const handleCancelScan = async (scanId: string) => {
     try {
       await fetchApi(`/scans/${scanId}/cancel`, { method: "POST" });
@@ -179,203 +194,238 @@ export default function OverviewDashboard() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Top Banner */}
-      <div className="border border-slate-800 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900/60 to-slate-900 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Security Assessment Overview</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Ashlynx WebSec Scanner — Continuous Dynamic Application Security Testing (DAST)
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowScanModal(true)}
-            className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-sm transition-colors shadow-lg shadow-cyan-600/20"
-          >
-            + New Scan
-          </button>
-          <button
-            onClick={() => setShowTargetModal(true)}
-            className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-sm transition-colors border border-slate-700"
-          >
-            Register Target
-          </button>
-        </div>
-      </div>
-
-      {/* Severity Counters Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <div className="p-4 rounded-xl border border-red-950/60 bg-red-950/10 backdrop-blur">
-          <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Critical</span>
-          <p className="text-3xl font-extrabold text-red-500 mt-2">0</p>
-          <span className="text-xs text-slate-400 mt-1 block">Immediate action</span>
-        </div>
-        <div className="p-4 rounded-xl border border-orange-950/60 bg-orange-950/10 backdrop-blur">
-          <span className="text-xs font-semibold text-orange-400 uppercase tracking-wider">High</span>
-          <p className="text-3xl font-extrabold text-orange-500 mt-2">0</p>
-          <span className="text-xs text-slate-400 mt-1 block">Injection / BOLA</span>
-        </div>
-        <div className="p-4 rounded-xl border border-amber-950/60 bg-amber-950/10 backdrop-blur">
-          <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Medium</span>
-          <p className="text-3xl font-extrabold text-amber-500 mt-2">{Math.min(totalFindings, 2)}</p>
-          <span className="text-xs text-slate-400 mt-1 block">CSRF / Redirects</span>
-        </div>
-        <div className="p-4 rounded-xl border border-blue-950/60 bg-blue-950/10 backdrop-blur">
-          <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Low</span>
-          <p className="text-3xl font-extrabold text-blue-400 mt-2">{Math.max(0, totalFindings - 2)}</p>
-          <span className="text-xs text-slate-400 mt-1 block">Security Headers</span>
-        </div>
-        <div className="p-4 rounded-xl border border-emerald-950/60 bg-emerald-950/10 backdrop-blur">
-          <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Info</span>
-          <p className="text-3xl font-extrabold text-emerald-400 mt-2">0</p>
-          <span className="text-xs text-slate-400 mt-1 block">Telemetry / Fingerprint</span>
-        </div>
-        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/30 backdrop-blur">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Scans</span>
-          <p className="text-3xl font-extrabold text-slate-300 mt-2">{activeScansCount}</p>
-          <span className="text-xs text-slate-400 mt-1 block">Orchestrator tasks</span>
-        </div>
-      </div>
-
-      {/* Targets & Scans Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Scans Table */}
-        <div className="lg:col-span-2 border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-white">Scan Execution Registry</h2>
-            <span className="text-xs text-slate-400">{scans.length} Total Jobs</span>
+    <div className="space-y-6">
+      {/* ====================================================================
+          PANEL 1: EDITORIAL HEADER & ACTION BAR
+          ==================================================================== */}
+      <PanelHeader
+        tag="OPS // WORKSTATION"
+        title="Security Assessment Overview"
+        subtitle="Ashlynx WebSec Scanner — Continuous Dynamic Application Security Testing (DAST) & Two-Phase Attack Surface Discovery"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowScanModal(true)}
+              variant="primary"
+              size="md"
+            >
+              + New Scan
+            </Button>
+            <Button
+              onClick={() => setShowTargetModal(true)}
+              variant="secondary"
+              size="md"
+            >
+              Register Target
+            </Button>
           </div>
+        }
+      />
 
-          {scans.length === 0 ? (
-            <div className="rounded-lg border border-slate-800/80 bg-slate-950/60 p-8 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-slate-800/60 flex items-center justify-center mx-auto text-slate-400">
-                ⚡
+      {/* ====================================================================
+          PANEL 2: RATIONAL METRIC MATRIX (6 Columns, Precision Tabular Values)
+          ==================================================================== */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-0 border border-swiss-border bg-surface divide-x divide-y sm:divide-y-0 divide-swiss-border">
+        <MetricCell
+          index="01"
+          label="Critical"
+          value={<span className="text-[#C62828] dark:text-[#FF5252]">0</span>}
+          sublabel="Immediate triage required"
+          indicatorColor="#C62828"
+        />
+        <MetricCell
+          index="02"
+          label="High"
+          value={<span className="text-[#E53935] dark:text-[#FF6E6A]">0</span>}
+          sublabel="Injection / BOLA bounds"
+          indicatorColor="#E53935"
+        />
+        <MetricCell
+          index="03"
+          label="Medium"
+          value={<span className="text-[#D97706] dark:text-[#FBBF24]">{Math.min(totalFindings, 2)}</span>}
+          sublabel="CSRF / Open Redirects"
+          indicatorColor="#D97706"
+        />
+        <MetricCell
+          index="04"
+          label="Low"
+          value={<span className="text-[#2563EB] dark:text-[#60A5FA]">{Math.max(0, totalFindings - 2)}</span>}
+          sublabel="Defensive Header Deficits"
+          indicatorColor="#2563EB"
+        />
+        <MetricCell
+          index="05"
+          label="Info"
+          value={<span className="text-[#64748B] dark:text-[#94A3B8]">0</span>}
+          sublabel="Passive Telemetry Fingerprint"
+          indicatorColor="#64748B"
+        />
+        <MetricCell
+          index="06"
+          label="Active Scans"
+          value={<span className="text-ink-primary">{activeScansCount}</span>}
+          sublabel="Orchestrator tasks running"
+        />
+      </div>
+
+      {/* ====================================================================
+          PANEL 3: MODULAR WORKBENCH (2 Column Asymmetric Layout)
+          ==================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Scans Execution Registry Table (2 Cols) */}
+        <div className="lg:col-span-2 border border-swiss-border bg-surface flex flex-col justify-between">
+          <div>
+            <div className="px-4 py-3 border-b border-swiss-border bg-surface-subtle flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono font-bold text-accent">01 {"//"}</span>
+                <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-ink-primary">
+                  Scan Execution Registry
+                </h2>
               </div>
-              <p className="text-sm font-medium text-slate-300">No active scans running</p>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Launch a scan via the dashboard or trigger one via the headless CLI:
-              </p>
-              <code className="text-xs text-cyan-400 bg-slate-900 px-3 py-1.5 rounded-md border border-slate-800 inline-block font-mono">
-                ashlynx scan http://127.0.0.1:8089 --profile SAFE_ACTIVE
-              </code>
+              <span className="text-[11px] font-mono text-ink-muted">
+                {scans.length} Total Jobs Captured
+              </span>
             </div>
-          ) : (
-            <div className="border border-slate-800 rounded-lg overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase font-semibold">
-                  <tr>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Target</th>
-                    <th className="p-3">Profile</th>
-                    <th className="p-3">Duration</th>
-                    <th className="p-3">Findings</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {scans.map((s) => (
-                    <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-xs font-mono font-semibold ${s.status === "COMPLETED"
-                            ? "bg-emerald-950 text-emerald-400 border border-emerald-800/60"
-                            : s.status === "RUNNING"
-                              ? "bg-cyan-950 text-cyan-400 border border-cyan-800/60 animate-pulse"
-                              : s.status === "CANCELLED"
-                                ? "bg-slate-800 text-slate-400 border border-slate-700"
-                                : "bg-yellow-950 text-yellow-400 border border-yellow-800/60"
-                            }`}
-                        >
-                          {s.status}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <div className="font-mono text-xs text-slate-200">{s.target_url}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{s.id.slice(0, 8)}...</div>
-                      </td>
-                      <td className="p-3 font-mono text-xs text-slate-300">{s.profile}</td>
-                      <td className="p-3 font-mono text-xs text-slate-400">{s.duration_seconds || 0}s</td>
-                      <td className="p-3 font-mono font-bold text-cyan-400">{s.findings_count || 0}</td>
-                      <td className="p-3 text-right space-x-2">
-                        <button
-                          onClick={() => handleViewFindings(s.id)}
-                          className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700"
-                        >
-                          Findings
-                        </button>
-                        <Link
-                          href={`/attack-surface?scan_id=${s.id}`}
-                          className="px-2 py-1 rounded bg-cyan-950 hover:bg-cyan-900 text-xs text-cyan-400 border border-cyan-800/60"
-                        >
-                          Surface
-                        </Link>
-                        {s.status === "RUNNING" && (
-                          <button
-                            onClick={() => handleCancelScan(s.id)}
-                            className="px-2 py-1 rounded bg-red-950 hover:bg-red-900 text-xs text-red-400 border border-red-800/60"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </td>
+
+            {scans.length === 0 ? (
+              <div className="p-8 text-center space-y-3">
+                <div className="w-10 h-10 border border-swiss-border bg-surface-subtle flex items-center justify-center mx-auto text-ink-muted">
+                  <Terminal size={18} />
+                </div>
+                <p className="text-sm font-mono text-ink-primary uppercase tracking-wider">
+                  No active scans running
+                </p>
+                <p className="text-xs font-sans text-ink-muted max-w-sm mx-auto">
+                  Launch an authorized assessment via the top workstation button or trigger headlessly via the CLI:
+                </p>
+                <code className="text-xs text-accent bg-surface-subtle px-3 py-1.5 border border-swiss-border inline-block font-mono">
+                  ashlynx scan http://127.0.0.1:8089 --profile SAFE_ACTIVE
+                </code>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-surface-subtle border-b border-swiss-border text-[11px] font-mono text-ink-muted uppercase">
+                    <tr>
+                      <th className="p-3 font-semibold">Status</th>
+                      <th className="p-3 font-semibold">Target</th>
+                      <th className="p-3 font-semibold">Profile</th>
+                      <th className="p-3 font-semibold">Duration</th>
+                      <th className="p-3 font-semibold">Findings</th>
+                      <th className="p-3 font-semibold text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="divide-y divide-swiss-border-subtle font-mono">
+                    {scans.map((s) => (
+                      <tr key={s.id} className="hover:bg-surface-subtle/80 transition-colors">
+                        <td className="p-3">
+                          <StatusBadge status={s.status} />
+                        </td>
+                        <td className="p-3">
+                          <div className="font-semibold text-ink-primary">{s.target_url}</div>
+                          <div className="text-[10px] text-ink-muted font-mono">{s.id.slice(0, 8)}...</div>
+                        </td>
+                        <td className="p-3 text-ink-secondary">{s.profile}</td>
+                        <td className="p-3 text-ink-muted">{s.duration_seconds || 0}s</td>
+                        <td className="p-3 font-bold text-accent tabular-nums">{s.findings_count || 0}</td>
+                        <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                          <Button
+                            onClick={() => handleViewFindings(s.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Findings
+                          </Button>
+                          <Link
+                            href={`/attack-surface?scan_id=${s.id}`}
+                            className="inline-flex items-center px-2 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider border border-swiss-border bg-surface-subtle hover:bg-surface text-ink-primary transition-colors"
+                          >
+                            Surface
+                          </Link>
+                          {s.status === "RUNNING" && (
+                            <Button
+                              onClick={() => handleCancelScan(s.id)}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="p-2 border-t border-swiss-border bg-surface-subtle text-[11px] font-mono text-ink-muted text-right">
+            {"POLL INTERVAL: 3000MS // SCOPEGATE SOCKET PINNING ACTIVE"}
+          </div>
         </div>
 
-        {/* Registered Targets & Engine Guardrails */}
+        {/* Right Rail: Targets & Engine Guardrails */}
         <div className="space-y-6">
-          {/* Target List */}
-          <div className="border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-white">Registered Targets</h2>
-              <span className="text-xs text-slate-400">{targets.length} Target(s)</span>
+          {/* Registered Targets */}
+          <div className="border border-swiss-border bg-surface">
+            <div className="px-4 py-3 border-b border-swiss-border bg-surface-subtle flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono font-bold text-accent">02 {"//"}</span>
+                <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-ink-primary">
+                  Registered Targets
+                </h2>
+              </div>
+              <span className="text-[11px] font-mono text-ink-muted">
+                {targets.length} Target(s)
+              </span>
             </div>
-            <div className="space-y-3">
+            <div className="p-4 space-y-3 divide-y divide-swiss-border-subtle">
               {targets.map((tgt) => (
-                <div key={tgt.id} className="p-3 rounded-lg border border-slate-800 bg-slate-950/60 space-y-1">
+                <div key={tgt.id} className="pt-2 first:pt-0 space-y-1 font-mono text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-white">{tgt.name}</span>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
+                    <span className="font-bold text-ink-primary">{tgt.name}</span>
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 border border-emerald-300 dark:border-emerald-800">
                       VERIFIED
                     </span>
                   </div>
-                  <p className="text-xs font-mono text-cyan-400">{tgt.base_url}</p>
-                  <p className="text-xs text-slate-400">{tgt.description}</p>
+                  <p className="text-accent text-[11px] break-all">{tgt.base_url}</p>
+                  <p className="text-[11px] text-ink-muted font-sans">{tgt.description}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Engine Guardrails */}
-          <div className="border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-white">Engine Guardrails</h2>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center py-2 border-b border-slate-800/60">
-                <span className="text-slate-400">ScopeGate Anti-SSRF</span>
-                <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+          <div className="border border-swiss-border bg-surface">
+            <div className="px-4 py-3 border-b border-swiss-border bg-surface-subtle flex items-center space-x-2">
+              <span className="text-xs font-mono font-bold text-accent">03 {"//"}</span>
+              <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-ink-primary">
+                Engine Guardrails
+              </h2>
+            </div>
+            <div className="p-4 space-y-2.5 font-mono text-xs divide-y divide-swiss-border-subtle">
+              <div className="flex justify-between items-center pt-2 first:pt-0">
+                <span className="text-ink-secondary">ScopeGate Anti-SSRF</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 border border-emerald-300 dark:border-emerald-800">
                   ENFORCED
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-slate-800/60">
-                <span className="text-slate-400">Two-Phase Verifier</span>
-                <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-ink-secondary">Two-Phase Verifier</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 border border-emerald-300 dark:border-emerald-800">
                   ACTIVE
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-slate-800/60">
-                <span className="text-slate-400">Evidence SHA-256 Seal</span>
-                <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-ink-secondary">Evidence SHA-256 Seal</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 border border-emerald-300 dark:border-emerald-800">
                   ENABLED
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-slate-400">Rate Limiter</span>
-                <span className="text-xs font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-ink-secondary">Rate Limiter</span>
+                <span className="text-[10px] text-accent bg-accent-subtle px-1.5 py-0.5 border border-accent/30 font-bold">
                   10 req/s
                 </span>
               </div>
@@ -384,42 +434,52 @@ export default function OverviewDashboard() {
         </div>
       </div>
 
-      {/* New Scan Modal */}
+      {/* ====================================================================
+          MODAL 1: NEW SCAN MODAL (Swiss Technical Specification)
+          ==================================================================== */}
       {showScanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="border border-slate-800 bg-slate-900 rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">Configure New DAST Scan</h3>
-              <button onClick={() => setShowScanModal(false)} className="text-slate-400 hover:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="border border-swiss-border-strong bg-surface max-w-md w-full p-6 space-y-4 shadow-swiss-md">
+            <div className="flex justify-between items-center border-b border-swiss-border pb-3">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono font-bold text-accent">01 {"//"}</span>
+                <h3 className="text-base font-display font-bold text-ink-primary uppercase tracking-tight">
+                  Configure New DAST Scan
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowScanModal(false)}
+                className="text-ink-muted hover:text-ink-primary font-mono text-sm px-1.5 py-0.5 border border-swiss-border hover:bg-surface-subtle"
+              >
                 ✕
               </button>
             </div>
 
             {scanFormError && (
-              <div className="p-3 rounded-lg border border-red-900/60 bg-red-950/30 text-xs text-red-400">
+              <div className="p-3 border border-[#F87171] bg-[#FEE2E2] dark:bg-[#2B0F10] text-xs font-mono text-[#C62828] dark:text-[#FF5252]">
                 {scanFormError}
               </div>
             )}
 
-            <form onSubmit={handleLaunchScan} className="space-y-4 text-sm">
+            <form onSubmit={handleLaunchScan} className="space-y-4 text-xs font-mono">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Target Base URL</label>
+                <label className="block text-ink-secondary mb-1 uppercase font-semibold">Target Base URL</label>
                 <input
                   type="text"
                   value={targetUrl}
                   onChange={(e) => setTargetUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-cyan-500 font-mono text-xs"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary focus:outline-none focus:border-accent text-xs font-mono rounded-none"
                   placeholder="http://127.0.0.1:8089"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Scan Profile</label>
+                <label className="block text-ink-secondary mb-1 uppercase font-semibold">Scan Profile</label>
                 <select
                   value={profile}
                   onChange={(e) => setProfile(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-cyan-500 text-xs"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary focus:outline-none focus:border-accent text-xs font-mono rounded-none"
                 >
                   <option value="SAFE_ACTIVE">SAFE_ACTIVE (Safe Injections & Verifiers)</option>
                   <option value="PASSIVE_ONLY">PASSIVE_ONLY (Reconnaissance Only)</option>
@@ -431,161 +491,184 @@ export default function OverviewDashboard() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Max Crawl Depth</label>
+                  <label className="block text-ink-secondary mb-1 uppercase font-semibold">Max Crawl Depth</label>
                   <input
                     type="number"
                     min="1"
                     max="5"
                     value={maxDepth}
                     onChange={(e) => setMaxDepth(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs"
+                    className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary text-xs font-mono rounded-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Max URLs</label>
+                  <label className="block text-ink-secondary mb-1 uppercase font-semibold">Max URLs</label>
                   <input
                     type="number"
                     min="5"
                     max="100"
                     value={maxUrls}
                     onChange={(e) => setMaxUrls(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs"
+                    className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary text-xs font-mono rounded-none"
                   />
                 </div>
               </div>
 
-              <div className="flex items-start gap-2 pt-2">
+              <div className="flex items-start gap-2 pt-2 border-t border-swiss-border-subtle">
                 <input
                   type="checkbox"
                   id="auth-check"
                   checked={authorized}
                   onChange={(e) => setAuthorized(e.target.checked)}
-                  className="mt-1"
+                  className="mt-0.5 accent-accent"
                 />
-                <label htmlFor="auth-check" className="text-xs text-slate-300">
+                <label htmlFor="auth-check" className="text-[11px] font-sans text-ink-secondary leading-snug">
                   I confirm that I have written authorization to scan this target.
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
+              <div className="flex justify-end gap-2 pt-3 border-t border-swiss-border">
+                <Button
                   type="button"
                   onClick={() => setShowScanModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                  variant="outline"
+                  size="sm"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={isLaunching}
-                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-medium text-xs"
+                  variant="primary"
+                  size="sm"
                 >
                   {isLaunching ? "Initiating..." : "Start Scan Job"}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Register Target Modal */}
+      {/* ====================================================================
+          MODAL 2: REGISTER TARGET MODAL (Swiss Technical Specification)
+          ==================================================================== */}
       {showTargetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="border border-slate-800 bg-slate-900 rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">Register Target Scope</h3>
-              <button onClick={() => setShowTargetModal(false)} className="text-slate-400 hover:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="border border-swiss-border-strong bg-surface max-w-md w-full p-6 space-y-4 shadow-swiss-md">
+            <div className="flex justify-between items-center border-b border-swiss-border pb-3">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono font-bold text-accent">02 {"//"}</span>
+                <h3 className="text-base font-display font-bold text-ink-primary uppercase tracking-tight">
+                  Register Target Scope
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowTargetModal(false)}
+                className="text-ink-muted hover:text-ink-primary font-mono text-sm px-1.5 py-0.5 border border-swiss-border hover:bg-surface-subtle"
+              >
                 ✕
               </button>
             </div>
 
             {targetFormError && (
-              <div className="p-3 rounded-lg border border-red-900/60 bg-red-950/30 text-xs text-red-400">
+              <div className="p-3 border border-[#F87171] bg-[#FEE2E2] dark:bg-[#2B0F10] text-xs font-mono text-[#C62828] dark:text-[#FF5252]">
                 {targetFormError}
               </div>
             )}
 
-            <form onSubmit={handleRegisterTarget} className="space-y-4 text-sm">
+            <form onSubmit={handleRegisterTarget} className="space-y-4 text-xs font-mono">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Target Name</label>
+                <label className="block text-ink-secondary mb-1 uppercase font-semibold">Target Name</label>
                 <input
                   type="text"
                   value={targetName}
                   onChange={(e) => setTargetName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary text-xs font-mono rounded-none"
                   placeholder="e.g. Test Staging Environment"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Base URL</label>
+                <label className="block text-ink-secondary mb-1 uppercase font-semibold">Base URL</label>
                 <input
                   type="text"
                   value={newTargetUrl}
                   onChange={(e) => setNewTargetUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 font-mono text-xs"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary font-mono text-xs rounded-none"
                   placeholder="http://127.0.0.1:8089"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Description</label>
+                <label className="block text-ink-secondary mb-1 uppercase font-semibold">Description</label>
                 <textarea
                   value={targetDesc}
                   onChange={(e) => setTargetDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary text-xs font-mono rounded-none"
                   placeholder="Authorized application scope description"
                   rows={2}
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
+              <div className="flex justify-end gap-2 pt-3 border-t border-swiss-border">
+                <Button
                   type="button"
                   onClick={() => setShowTargetModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                  variant="outline"
+                  size="sm"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs"
+                  variant="primary"
+                  size="sm"
                 >
                   Register Target
-                </button>
+                </Button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Findings Drawer */}
+      {/* ====================================================================
+          DRAWER: SECURITY VULNERABILITY FINDINGS (Technical Inspection)
+          ==================================================================== */}
       {selectedScanFindings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-2xl h-full bg-slate-900 border-l border-slate-800 p-6 space-y-6 overflow-y-auto shadow-2xl">
-            <div className="flex justify-between items-start">
+        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60">
+          <div className="w-full max-w-2xl h-full bg-surface border-l border-swiss-border p-6 space-y-5 overflow-y-auto shadow-swiss-md">
+            <div className="flex justify-between items-start border-b border-swiss-border pb-3">
               <div>
-                <h3 className="text-lg font-bold text-white">Security Vulnerability Findings</h3>
-                <p className="text-xs font-mono text-slate-400">Scan: {selectedScanFindings.scanId}</p>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-mono font-bold text-accent">FORENSIC {"//"}</span>
+                  <h3 className="text-lg font-display font-bold text-ink-primary uppercase tracking-tight">
+                    Security Vulnerability Findings
+                  </h3>
+                </div>
+                <p className="text-xs font-mono text-ink-muted mt-0.5">Scan: {selectedScanFindings.scanId}</p>
               </div>
               <button
                 onClick={() => setSelectedScanFindings(null)}
-                className="text-slate-400 hover:text-white text-lg"
+                className="text-ink-muted hover:text-ink-primary font-mono text-base px-2 py-0.5 border border-swiss-border hover:bg-surface-subtle"
               >
                 ✕
               </button>
             </div>
 
             {/* Export Report Actions */}
-            <div className="flex items-center gap-2 p-3 bg-slate-950 rounded-lg border border-slate-800">
-              <span className="text-xs text-slate-400 font-medium mr-auto">Download Scan Report:</span>
+            <div className="flex items-center gap-2 p-3 bg-surface-subtle border border-swiss-border">
+              <span className="text-xs font-mono text-ink-secondary uppercase font-semibold mr-auto">
+                Download Scan Report:
+              </span>
               <a
                 href={`http://localhost:8000/api/v1/reports/${selectedScanFindings.scanId}?format=json&download=true`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-cyan-400 border border-slate-700"
+                className="px-2.5 py-1 text-xs font-mono font-semibold uppercase border border-swiss-border bg-surface hover:bg-surface-subtle text-ink-primary transition-colors"
               >
                 JSON
               </a>
@@ -593,7 +676,7 @@ export default function OverviewDashboard() {
                 href={`http://localhost:8000/api/v1/reports/${selectedScanFindings.scanId}?format=html&download=true`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-cyan-400 border border-slate-700"
+                className="px-2.5 py-1 text-xs font-mono font-semibold uppercase border border-swiss-border bg-surface hover:bg-surface-subtle text-ink-primary transition-colors"
               >
                 HTML
               </a>
@@ -601,21 +684,21 @@ export default function OverviewDashboard() {
                 href={`http://localhost:8000/api/v1/reports/${selectedScanFindings.scanId}?format=markdown&download=true`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-cyan-400 border border-slate-700"
+                className="px-2.5 py-1 text-xs font-mono font-semibold uppercase border border-swiss-border bg-surface hover:bg-surface-subtle text-ink-primary transition-colors"
               >
                 Markdown
               </a>
             </div>
 
             {/* Severity Filter Tabs */}
-            <div className="flex gap-2 text-xs">
+            <div className="flex gap-1.5 text-xs font-mono">
               {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((sev) => (
                 <button
                   key={sev}
                   onClick={() => setSeverityFilter(sev)}
-                  className={`px-3 py-1 rounded-md transition-colors ${severityFilter === sev
-                    ? "bg-cyan-600 text-white font-semibold"
-                    : "bg-slate-800 text-slate-400 hover:text-slate-200"
+                  className={`px-3 py-1 font-semibold tracking-wider uppercase border transition-colors ${severityFilter === sev
+                    ? "bg-accent text-white border-accent"
+                    : "bg-surface-subtle text-ink-muted border-swiss-border hover:bg-surface hover:text-ink-primary"
                     }`}
                 >
                   {sev}
@@ -624,7 +707,7 @@ export default function OverviewDashboard() {
             </div>
 
             {/* Findings List */}
-            <div className="space-y-4">
+            <div className="space-y-3 font-mono">
               {selectedScanFindings.findings
                 .filter((f) => severityFilter === "ALL" || f.severity === severityFilter)
                 .map((f) => {
@@ -632,81 +715,70 @@ export default function OverviewDashboard() {
                   return (
                     <div
                       key={f.id}
-                      className="border border-slate-800 rounded-xl bg-slate-950/60 p-4 space-y-3 transition-colors"
+                      className="border border-swiss-border bg-surface p-4 space-y-3"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${f.severity === "CRITICAL"
-                                ? "bg-red-950 text-red-400 border border-red-800"
-                                : f.severity === "HIGH"
-                                  ? "bg-orange-950 text-orange-400 border border-orange-800"
-                                  : f.severity === "MEDIUM"
-                                    ? "bg-amber-950 text-amber-400 border border-amber-800"
-                                    : "bg-blue-950 text-blue-400 border border-blue-800"
-                                }`}
-                            >
-                              {f.severity}
-                            </span>
-                            <span className="text-xs font-mono text-slate-400">{f.cwe_id}</span>
-                            <span className="text-xs text-slate-500">CVSS {f.cvss_score}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <SeverityBadge severity={f.severity} />
+                            <span className="text-xs text-ink-muted">{f.cwe_id}</span>
+                            <span className="text-xs text-ink-secondary">CVSS {f.cvss_score}</span>
                             {f.intelligence && (
                               <>
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-cyan-300 border border-slate-700">
+                                <span className="px-1.5 py-0.5 text-[10px] bg-surface-subtle text-ink-secondary border border-swiss-border">
                                   {f.intelligence.confidence_assessment.level} CONF ({Math.round(f.confidence * 100)}%)
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-emerald-300 border border-slate-700">
+                                <span className="px-1.5 py-0.5 text-[10px] bg-surface-subtle text-emerald-600 dark:text-emerald-400 border border-swiss-border">
                                   {f.intelligence.validation_state}
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-950/60 text-purple-300 border border-purple-800/60">
+                                <span className="px-1.5 py-0.5 text-[10px] bg-accent-subtle text-accent border border-accent/20">
                                   PRIO: {f.intelligence.contextual_risk.contextual_priority}
                                 </span>
                               </>
                             )}
                           </div>
-                          <h4 className="text-sm font-semibold text-white">{f.title}</h4>
+                          <h4 className="text-sm font-display font-bold text-ink-primary">{f.title}</h4>
                         </div>
                         <button
                           onClick={() => setExpandedFindingId(isExpanded ? null : f.id)}
-                          className="text-xs text-cyan-400 hover:text-cyan-300 font-medium"
+                          className="text-xs text-accent hover:underline font-mono uppercase font-semibold"
                         >
                           {isExpanded ? "Collapse" : "Details"}
                         </button>
                       </div>
 
                       {f.endpoint && (
-                        <p className="text-xs font-mono text-slate-300 bg-slate-900 px-2 py-1 rounded border border-slate-800 break-all">
+                        <p className="text-xs font-mono text-ink-secondary bg-surface-subtle px-2 py-1 border border-swiss-border break-all">
                           {f.endpoint.method} {f.endpoint.url}
                         </p>
                       )}
 
                       {isExpanded && (
-                        <div className="pt-3 border-t border-slate-800/80 space-y-3 text-xs">
+                        <div className="pt-3 border-t border-swiss-border space-y-3 text-xs">
                           {f.description && (
                             <div>
-                              <span className="font-semibold text-slate-400 block mb-1">Description</span>
-                              <p className="text-slate-300 leading-relaxed">{f.description}</p>
+                              <span className="font-semibold text-ink-muted uppercase block mb-1">Description</span>
+                              <p className="text-ink-secondary font-sans leading-relaxed">{f.description}</p>
                             </div>
                           )}
 
                           {f.remediation && (
-                            <div className="p-3 rounded bg-cyan-950/20 border border-cyan-800/40">
-                              <span className="font-semibold text-cyan-400 block mb-1">Remediation Guidance</span>
-                              <p className="text-slate-300">{f.remediation}</p>
+                            <div className="p-3 bg-surface-subtle border border-swiss-border">
+                              <span className="font-bold text-accent uppercase block mb-1">Remediation Guidance</span>
+                              <p className="text-ink-secondary font-sans leading-relaxed">{f.remediation}</p>
                             </div>
                           )}
 
                           {f.evidence && (
                             <div className="space-y-2">
-                              <span className="font-semibold text-slate-400 block">Cryptographic Evidence</span>
+                              <span className="font-semibold text-ink-muted uppercase block">Cryptographic Evidence</span>
                               {f.evidence.sha256_hash && (
-                                <p className="text-[10px] font-mono text-slate-500 truncate">
+                                <p className="text-[10px] font-mono text-ink-muted truncate">
                                   SHA-256: {f.evidence.sha256_hash}
                                 </p>
                               )}
                               {f.evidence.response && (
-                                <pre className="p-2 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono text-slate-300 max-h-40 overflow-y-auto whitespace-pre-wrap">
+                                <pre className="p-2 bg-surface-subtle border border-swiss-border text-[10px] font-mono text-ink-primary max-h-40 overflow-y-auto whitespace-pre-wrap">
                                   {f.evidence.response}
                                 </pre>
                               )}
@@ -719,7 +791,7 @@ export default function OverviewDashboard() {
                 })}
 
               {selectedScanFindings.findings.length === 0 && (
-                <div className="p-8 text-center text-slate-500 text-sm">
+                <div className="p-8 text-center text-ink-muted text-xs font-mono border border-swiss-border">
                   No vulnerabilities identified for this scan job.
                 </div>
               )}

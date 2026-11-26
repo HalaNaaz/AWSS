@@ -2,6 +2,11 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import {
+  PanelHeader,
+  Button,
+} from "../../components/ui/swiss-components";
+import { ShieldCheck, Plus, ExternalLink, Globe, Layers, AlertCircle } from "lucide-react";
 
 interface Target {
   id: string;
@@ -67,50 +72,73 @@ export default function TargetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="border border-slate-800 rounded-xl bg-slate-900/60 p-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Authorized Target Management</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Configure application roots, verified ownership boundaries, and ScopeGate rules
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-sm transition-colors"
-        >
-          + Add Target
-        </button>
-      </div>
+      {/* Editorial Header */}
+      <PanelHeader
+        tag="SCOPE // INVENTORY"
+        title="Authorized Target Management"
+        subtitle="Configure application roots, verified ownership boundaries, and ScopeGate rules"
+        actions={
+          <Button
+            onClick={() => setShowAddModal(true)}
+            variant="primary"
+            size="md"
+          >
+            + Add Target
+          </Button>
+        }
+      />
 
+      {/* Targets Modular Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {targets.map((tgt) => (
-          <div key={tgt.id} className="border border-slate-800 rounded-xl bg-slate-900/40 p-5 space-y-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-base font-semibold text-white">{tgt.name}</h3>
-                <p className="text-xs font-mono text-cyan-400 mt-0.5">{tgt.base_url}</p>
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800/60">
-                VERIFIED
-              </span>
-            </div>
-
-            <p className="text-xs text-slate-400 leading-relaxed">{tgt.description || "No description provided."}</p>
-
-            <div className="border-t border-slate-800/80 pt-3 space-y-2">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Scope Boundaries</span>
-              {tgt.scope_rules.map((r, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs font-mono text-slate-300">
-                  <span className="text-emerald-400 text-[10px] font-bold">[{r.rule_type}]</span>
-                  <span className="truncate">{r.pattern}</span>
+        {targets.map((tgt, idx) => (
+          <div
+            key={tgt.id}
+            className="border border-swiss-border bg-surface flex flex-col justify-between"
+          >
+            <div>
+              <div className="px-4 py-3 border-b border-swiss-border bg-surface-subtle flex justify-between items-center">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-mono font-bold text-accent">
+                    {String(idx + 1).padStart(2, "0")} {"//"}
+                  </span>
+                  <h3 className="text-sm font-mono font-bold text-ink-primary uppercase tracking-wider truncate">
+                    {tgt.name}
+                  </h3>
                 </div>
-              ))}
+                <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800">
+                  VERIFIED
+                </span>
+              </div>
+
+              <div className="p-4 space-y-3 font-mono text-xs">
+                <div>
+                  <span className="text-[10px] text-ink-muted uppercase block">Root Endpoint</span>
+                  <p className="text-accent text-xs font-bold break-all mt-0.5">{tgt.base_url}</p>
+                </div>
+
+                <div className="font-sans text-xs text-ink-secondary leading-relaxed border-t border-swiss-border-subtle pt-2">
+                  {tgt.description || "No description provided."}
+                </div>
+
+                <div className="border-t border-swiss-border-subtle pt-2 space-y-1.5">
+                  <span className="text-[10px] font-semibold text-ink-muted uppercase tracking-wider block">
+                    Scope Boundaries
+                  </span>
+                  {tgt.scope_rules.map((r, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-xs text-ink-secondary bg-surface-subtle p-1.5 border border-swiss-border">
+                      <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">[{r.rule_type}]</span>
+                      <span className="truncate">{r.pattern}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="p-3 border-t border-swiss-border bg-surface-subtle flex justify-between items-center text-xs font-mono">
+              <span className="text-[11px] text-ink-muted">CRITICALITY: {tgt.asset_criticality}/5</span>
               <Link
                 href={`/?target_id=${tgt.id}`}
-                className="px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 text-xs text-cyan-400 border border-cyan-800/60 transition-colors"
+                className="px-2.5 py-1 text-xs font-mono font-semibold uppercase tracking-wider border border-accent bg-accent text-white hover:bg-accent-hover transition-colors"
               >
                 Scan Target
               </Link>
@@ -119,70 +147,83 @@ export default function TargetsPage() {
         ))}
       </div>
 
+      {/* Add Target Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="border border-slate-800 bg-slate-900 rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">Register Target Scope</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">✕</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="border border-swiss-border-strong bg-surface max-w-md w-full p-6 space-y-4 shadow-swiss-md">
+            <div className="flex justify-between items-center border-b border-swiss-border pb-3">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono font-bold text-accent">01 {"//"}</span>
+                <h3 className="text-base font-display font-bold text-ink-primary uppercase tracking-tight">
+                  Register Target Scope
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-ink-muted hover:text-ink-primary font-mono text-sm px-1.5 py-0.5 border border-swiss-border hover:bg-surface-subtle"
+              >
+                ✕
+              </button>
             </div>
 
             {formError && (
-              <div className="p-3 rounded-lg border border-red-900/60 bg-red-950/30 text-xs text-red-400">
+              <div className="p-3 border border-[#F87171] bg-[#FEE2E2] dark:bg-[#2B0F10] text-xs font-mono text-[#C62828] dark:text-[#FF5252]">
                 {formError}
               </div>
             )}
 
-            <form onSubmit={handleAddTarget} className="space-y-4 text-sm">
+            <form onSubmit={handleAddTarget} className="space-y-4 text-xs font-mono">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Target Name</label>
+                <label className="block text-ink-secondary mb-1 uppercase font-semibold">Target Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary text-xs font-mono rounded-none"
                   placeholder="e.g. Staging Environment"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Base URL</label>
+                <label className="block text-ink-secondary mb-1 uppercase font-semibold">Base URL</label>
                 <input
                   type="text"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 font-mono text-xs"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary font-mono text-xs rounded-none"
                   placeholder="http://127.0.0.1:8089"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Description</label>
+                <label className="block text-ink-secondary mb-1 uppercase font-semibold">Description</label>
                 <textarea
                   value={desc}
                   onChange={(e) => setDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-swiss-border text-ink-primary text-xs font-mono rounded-none"
                   placeholder="Target purpose and boundaries"
                   rows={2}
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
+              <div className="flex justify-end gap-2 pt-3 border-t border-swiss-border">
+                <Button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                  variant="outline"
+                  size="sm"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs"
+                  variant="primary"
+                  size="sm"
                 >
                   Register
-                </button>
+                </Button>
               </div>
             </form>
           </div>

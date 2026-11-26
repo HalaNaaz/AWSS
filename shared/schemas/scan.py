@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional, Dict, Any
+from urllib.parse import urlparse
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from shared.schemas.common import ScanProfile, ScanStatus
 
 
@@ -87,6 +88,25 @@ class ScanJobCreate(ScanJobBase):
     target_url: Optional[str] = None
     asset_criticality: Optional[float] = Field(default=None, ge=0.5, le=5.0)
     parameters: Optional[Dict[str, Any]] = None
+
+    @field_validator("target_url")
+    @classmethod
+    def validate_target_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("target_url cannot be empty.")
+        parsed = urlparse(cleaned)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("target_url must be a valid HTTP or HTTPS URL with a hostname.")
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_target_present(self) -> "ScanJobCreate":
+        if not self.target_url and not self.target_id:
+            raise ValueError("Either target_url or target_id must be provided.")
+        return self
 
 
 class ScanJobResponse(ScanJobBase):

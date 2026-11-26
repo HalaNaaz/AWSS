@@ -8,7 +8,7 @@ from backend.app.core.config import settings
 from backend.app.core.exceptions import AshlynxException, ScopeViolationError, SSRFValidationError
 from backend.app.core.logging import logger
 from backend.app.middleware.correlation import CorrelationIdMiddleware
-from backend.app.middleware.security import SecurityHeadersMiddleware
+from backend.app.middleware.security import LocalBoundaryAndAuthMiddleware, SecurityHeadersMiddleware
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ app = FastAPI(
 )
 
 # --- Middleware Stack ---
+app.add_middleware(LocalBoundaryAndAuthMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(

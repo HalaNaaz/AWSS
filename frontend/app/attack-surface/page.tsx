@@ -11,6 +11,12 @@ import {
   AssetIntelligence,
   AttackSurfaceGraph
 } from "../../types/models";
+import {
+  PanelHeader,
+  Button,
+  MetricCell,
+} from "../../components/ui/swiss-components";
+import { Radio, Search, Download, ZoomIn, ZoomOut, RefreshCw } from "lucide-react";
 
 export default function AttackSurfaceDashboard() {
   const [scanId, setScanId] = useState<string>("");
@@ -33,7 +39,6 @@ export default function AttackSurfaceDashboard() {
   const [assets, setAssets] = useState<AssetIntelligence[]>([]);
   const [graph, setGraph] = useState<AttackSurfaceGraph | null>(null);
 
-  // Fetch telemetry when scanId changes
   const loadScanData = async (id: string) => {
     if (!id.trim()) return;
     setLoading(true);
@@ -64,7 +69,6 @@ export default function AttackSurfaceDashboard() {
     }
   };
 
-  // Mount: auto-load scans and parse ?scan_id=...
   useEffect(() => {
     let initialScanId = "";
     if (typeof window !== "undefined") {
@@ -91,117 +95,127 @@ export default function AttackSurfaceDashboard() {
       .catch(() => {});
   }, []);
 
+  const tabList = [
+    { id: "overview", label: "Overview & Signals" },
+    { id: "prioritized", label: `Prioritization Queue (${prioritized.length})` },
+    { id: "endpoints", label: `Endpoints (${endpoints.length})` },
+    { id: "parameters", label: `Parameters (${parameters.length})` },
+    { id: "apis", label: `APIs (${apis.length})` },
+    { id: "assets", label: `Assets (${assets.length})` },
+    { id: "graph", label: `Topology Graph (${graph?.nodes?.length || 0})` }
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="border border-slate-800 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900/60 to-slate-900 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-cyan-950 text-cyan-400 border border-cyan-800/60">
-              PHASE 4
-            </span>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Attack Surface Intelligence</h1>
-          </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Automated asset mapping, parameter heuristic classification, API discovery, and topology graph
-          </p>
-        </div>
+      {/* Editorial Header */}
+      <PanelHeader
+        tag="PHASE 4 // DISCOVERY"
+        title="Attack Surface Intelligence"
+        subtitle="Automated asset mapping, parameter heuristic classification, API discovery, and topology graph"
+        actions={
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto font-mono text-xs">
+            {recentScans.length > 0 && (
+              <select
+                value={scanId}
+                onChange={(e) => {
+                  setScanId(e.target.value);
+                  loadScanData(e.target.value);
+                }}
+                className="px-3 py-1.5 bg-surface-subtle border border-swiss-border text-ink-primary focus:outline-none focus:border-accent w-full sm:w-48 rounded-none text-xs"
+              >
+                <option value="">Select Scan Job...</option>
+                {recentScans.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.target_url} ({s.status})
+                  </option>
+                ))}
+              </select>
+            )}
 
-        {/* Scan Selector / Input */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
-          {recentScans.length > 0 && (
-            <select
+            <input
+              type="text"
+              placeholder="Or enter Scan UUID..."
               value={scanId}
-              onChange={(e) => {
-                setScanId(e.target.value);
-                loadScanData(e.target.value);
-              }}
-              className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500 w-full sm:w-48"
+              onChange={(e) => setScanId(e.target.value)}
+              className="px-3 py-1.5 bg-surface-subtle border border-swiss-border text-ink-primary placeholder-ink-muted focus:outline-none focus:border-accent w-full sm:w-52 font-mono text-xs rounded-none"
+            />
+            <Button
+              onClick={() => loadScanData(scanId)}
+              disabled={loading || !scanId.trim()}
+              variant="primary"
+              size="md"
             >
-              <option value="">Select Scan Job...</option>
-              {recentScans.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.target_url} ({s.status})
-                </option>
-              ))}
-            </select>
-          )}
-
-          <input
-            type="text"
-            placeholder="Or enter Scan UUID..."
-            value={scanId}
-            onChange={(e) => setScanId(e.target.value)}
-            className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-full sm:w-56 font-mono"
-          />
-          <button
-            onClick={() => loadScanData(scanId)}
-            disabled={loading || !scanId.trim()}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition-colors whitespace-nowrap w-full sm:w-auto"
-          >
-            {loading ? "Loading..." : "Load Surface"}
-          </button>
-        </div>
-      </div>
+              {loading ? "Loading..." : "Load Surface"}
+            </Button>
+          </div>
+        }
+      />
 
       {error && (
-        <div className="p-4 rounded-xl border border-red-900/60 bg-red-950/20 text-red-400 text-sm">
+        <div className="p-3 border border-[#F87171] bg-[#FEE2E2] dark:bg-[#2B0F10] text-xs font-mono text-[#C62828] dark:text-[#FF5252]">
           {error}
         </div>
       )}
 
-      {/* Metrics Row */}
+      {/* Metrics Row — Swiss Technical Grid */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Endpoints</span>
-            <p className="text-2xl font-bold text-cyan-400 mt-1">{summary.total_endpoints}</p>
-          </div>
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Parameters</span>
-            <p className="text-2xl font-bold text-yellow-400 mt-1">{summary.total_parameters}</p>
-          </div>
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">APIs</span>
-            <p className="text-2xl font-bold text-purple-400 mt-1">{summary.total_apis}</p>
-          </div>
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Assets</span>
-            <p className="text-2xl font-bold text-blue-400 mt-1">{summary.total_assets}</p>
-          </div>
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Technologies</span>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{summary.total_technologies}</p>
-          </div>
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Graph Nodes</span>
-            <p className="text-2xl font-bold text-slate-200 mt-1">{summary.graph_nodes_count}</p>
-          </div>
-          <div className="p-4 rounded-xl border border-red-950/60 bg-red-950/10">
-            <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">High Priority</span>
-            <p className="text-2xl font-bold text-red-500 mt-1">{summary.high_priority_endpoints_count}</p>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 border border-swiss-border bg-surface divide-x divide-y sm:divide-y-0 divide-swiss-border">
+          <MetricCell
+            index="01"
+            label="Endpoints"
+            value={<span className="text-accent">{summary.total_endpoints}</span>}
+            sublabel="Observed routes"
+          />
+          <MetricCell
+            index="02"
+            label="Parameters"
+            value={<span className="text-[#D97706] dark:text-[#FBBF24]">{summary.total_parameters}</span>}
+            sublabel="Classified inputs"
+          />
+          <MetricCell
+            index="03"
+            label="APIs"
+            value={<span className="text-[#2563EB] dark:text-[#60A5FA]">{summary.total_apis}</span>}
+            sublabel="REST/GraphQL"
+          />
+          <MetricCell
+            index="04"
+            label="Assets"
+            value={<span className="text-ink-primary">{summary.total_assets}</span>}
+            sublabel="Scripts & styles"
+          />
+          <MetricCell
+            index="05"
+            label="Technologies"
+            value={<span className="text-[#15803D] dark:text-[#4ADE80]">{summary.total_technologies}</span>}
+            sublabel="Fingerprinted stacks"
+          />
+          <MetricCell
+            index="06"
+            label="Graph Nodes"
+            value={<span className="text-ink-secondary">{summary.graph_nodes_count}</span>}
+            sublabel="Topology elements"
+          />
+          <MetricCell
+            index="07"
+            label="High Priority"
+            value={<span className="text-[#C62828] dark:text-[#FF5252]">{summary.high_priority_endpoints_count}</span>}
+            sublabel="Critical targets"
+            indicatorColor="#C62828"
+          />
         </div>
       )}
 
-      {/* Navigation Tabs */}
-      <div className="border-b border-slate-800 flex flex-wrap gap-4 text-sm font-medium">
-        {[
-          { id: "overview", label: "Overview & Signals" },
-          { id: "prioritized", label: `Prioritization Queue (${prioritized.length})` },
-          { id: "endpoints", label: `Endpoints (${endpoints.length})` },
-          { id: "parameters", label: `Parameters (${parameters.length})` },
-          { id: "apis", label: `APIs (${apis.length})` },
-          { id: "assets", label: `Assets (${assets.length})` },
-          { id: "graph", label: `Topology Graph (${graph?.nodes?.length || 0})` }
-        ].map((tab) => (
+      {/* Navigation Tabs Bar */}
+      <div className="border-b border-swiss-border bg-surface flex flex-wrap gap-1 px-2 pt-2 text-xs font-mono">
+        {tabList.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`pb-3 px-1 border-b-2 transition-colors ${
+            className={`px-3 py-2 border-b-2 uppercase tracking-wider font-semibold transition-colors ${
               activeTab === tab.id
-                ? "border-cyan-500 text-cyan-400 font-semibold"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-accent text-accent font-bold bg-surface-subtle"
+                : "border-transparent text-ink-muted hover:text-ink-primary hover:border-swiss-border"
             }`}
           >
             {tab.label}
@@ -209,23 +223,24 @@ export default function AttackSurfaceDashboard() {
         ))}
       </div>
 
-      {/* Search / Filter bar for data tables */}
+      {/* Search / Filter bar for tables */}
       {activeTab !== "overview" && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             placeholder={`Filter ${activeTab}...`}
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-full max-w-xs"
+            className="px-3 py-1.5 bg-surface border border-swiss-border text-xs font-mono text-ink-primary placeholder-ink-muted focus:outline-none focus:border-accent w-full max-w-sm rounded-none"
           />
           {filterQuery && (
-            <button
+            <Button
               onClick={() => setFilterQuery("")}
-              className="text-xs text-slate-400 hover:text-slate-200"
+              variant="outline"
+              size="sm"
             >
               Clear
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -236,42 +251,48 @@ export default function AttackSurfaceDashboard() {
         {activeTab === "overview" && (
           <div className="space-y-6">
             {!summary ? (
-              <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-400">
-                <p>No scan selected. Select a scan job from the dropdown above to visualize its attack surface.</p>
+              <div className="border border-swiss-border bg-surface p-12 text-center text-ink-muted font-mono text-xs">
+                No scan selected. Select a scan job from the dropdown above to visualize its attack surface.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
-                  <h3 className="text-sm font-semibold text-white">Parameter Categories Breakdown</h3>
-                  <div className="space-y-2 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
+                <div className="border border-swiss-border bg-surface">
+                  <div className="px-4 py-2.5 border-b border-swiss-border bg-surface-subtle font-bold uppercase tracking-wider text-ink-primary">
+                    Parameter Categories Breakdown
+                  </div>
+                  <div className="p-4 space-y-2 divide-y divide-swiss-border-subtle">
                     {Object.entries(summary.parameter_categories_breakdown || {}).map(([cat, count]) => (
-                      <div key={cat} className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                        <span className="text-slate-400 font-mono">{cat}</span>
-                        <span className="font-semibold text-cyan-400">{count}</span>
+                      <div key={cat} className="flex justify-between items-center pt-1.5 first:pt-0">
+                        <span className="text-ink-secondary">{cat}</span>
+                        <span className="font-bold text-accent tabular-nums">{count}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
-                  <h3 className="text-sm font-semibold text-white">API Architectural Types</h3>
-                  <div className="space-y-2 text-xs">
+                <div className="border border-swiss-border bg-surface">
+                  <div className="px-4 py-2.5 border-b border-swiss-border bg-surface-subtle font-bold uppercase tracking-wider text-ink-primary">
+                    API Architectural Types
+                  </div>
+                  <div className="p-4 space-y-2 divide-y divide-swiss-border-subtle">
                     {Object.entries(summary.api_types_breakdown || {}).map(([type, count]) => (
-                      <div key={type} className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                        <span className="text-slate-400 font-mono">{type}</span>
-                        <span className="font-semibold text-purple-400">{count}</span>
+                      <div key={type} className="flex justify-between items-center pt-1.5 first:pt-0">
+                        <span className="text-ink-secondary">{type}</span>
+                        <span className="font-bold text-[#2563EB] dark:text-[#60A5FA] tabular-nums">{count}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
-                  <h3 className="text-sm font-semibold text-white">Client Asset Types</h3>
-                  <div className="space-y-2 text-xs">
+                <div className="border border-swiss-border bg-surface">
+                  <div className="px-4 py-2.5 border-b border-swiss-border bg-surface-subtle font-bold uppercase tracking-wider text-ink-primary">
+                    Client Asset Types
+                  </div>
+                  <div className="p-4 space-y-2 divide-y divide-swiss-border-subtle">
                     {Object.entries(summary.asset_types_breakdown || {}).map(([atype, count]) => (
-                      <div key={atype} className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                        <span className="text-slate-400 font-mono">{atype}</span>
-                        <span className="font-semibold text-blue-400">{count}</span>
+                      <div key={atype} className="flex justify-between items-center pt-1.5 first:pt-0">
+                        <span className="text-ink-secondary">{atype}</span>
+                        <span className="font-bold text-ink-primary tabular-nums">{count}</span>
                       </div>
                     ))}
                   </div>
@@ -281,37 +302,37 @@ export default function AttackSurfaceDashboard() {
           </div>
         )}
 
-        {/* Prioritized Endpoints Tab */}
+        {/* Prioritization Queue Tab */}
         {activeTab === "prioritized" && (
-          <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/30">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase font-semibold">
+          <div className="border border-swiss-border bg-surface overflow-hidden">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-surface-subtle border-b border-swiss-border text-[11px] font-mono text-ink-muted uppercase">
                 <tr>
-                  <th className="p-3">Priority</th>
-                  <th className="p-3">Score</th>
-                  <th className="p-3">Method</th>
-                  <th className="p-3">URL</th>
-                  <th className="p-3">Signals</th>
+                  <th className="p-3 font-semibold">Priority</th>
+                  <th className="p-3 font-semibold">Score</th>
+                  <th className="p-3 font-semibold">Method</th>
+                  <th className="p-3 font-semibold">URL</th>
+                  <th className="p-3 font-semibold">Signals</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-swiss-border-subtle font-mono text-xs">
                 {prioritized
                   .filter((p) => !filterQuery || p.url.toLowerCase().includes(filterQuery.toLowerCase()) || p.priority_level.toLowerCase().includes(filterQuery.toLowerCase()))
                   .map((p, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
+                    <tr key={idx} className="hover:bg-surface-subtle/80 transition-colors">
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-mono font-semibold ${
-                          p.priority_level === "HIGH" ? "bg-red-950 text-red-400 border border-red-800/60" :
-                          p.priority_level === "MEDIUM" ? "bg-amber-950 text-amber-400 border border-amber-800/60" :
-                          "bg-blue-950 text-blue-400 border border-blue-800/60"
+                        <span className={`px-2 py-0.5 text-xs font-mono font-bold tracking-wider border rounded-none uppercase ${
+                          p.priority_level === "HIGH" ? "bg-[#FEE2E2] dark:bg-[#2B0F10] text-[#C62828] dark:text-[#FF5252] border-[#F87171] dark:border-[#5C1D1E]" :
+                          p.priority_level === "MEDIUM" ? "bg-[#FEF3C7] dark:bg-[#291B07] text-[#D97706] dark:text-[#FBBF24] border-[#FCD34D] dark:border-[#52380E]" :
+                          "bg-[#EFF6FF] dark:bg-[#0C1A30] text-[#2563EB] dark:text-[#60A5FA] border-[#93C5FD] dark:border-[#1E3A8A]"
                         }`}>
                           {p.priority_level}
                         </span>
                       </td>
-                      <td className="p-3 font-mono font-bold text-white">{p.priority_score}</td>
-                      <td className="p-3 font-mono text-cyan-400">{p.method}</td>
-                      <td className="p-3 font-mono text-xs text-slate-300 break-all">{p.url}</td>
-                      <td className="p-3 text-xs text-slate-400">{p.risk_signals?.join("; ") || "-"}</td>
+                      <td className="p-3 font-bold text-ink-primary tabular-nums">{p.priority_score}</td>
+                      <td className="p-3 text-accent font-semibold">{p.method}</td>
+                      <td className="p-3 text-ink-primary break-all">{p.url}</td>
+                      <td className="p-3 text-ink-muted font-sans">{p.risk_signals?.join("; ") || "-"}</td>
                     </tr>
                   ))}
               </tbody>
@@ -321,31 +342,31 @@ export default function AttackSurfaceDashboard() {
 
         {/* Endpoints Tab */}
         {activeTab === "endpoints" && (
-          <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/30">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase font-semibold">
+          <div className="border border-swiss-border bg-surface overflow-hidden">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-surface-subtle border-b border-swiss-border text-[11px] font-mono text-ink-muted uppercase">
                 <tr>
-                  <th className="p-3">Method</th>
-                  <th className="p-3">URL</th>
-                  <th className="p-3">Category</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Discovery Method</th>
+                  <th className="p-3 font-semibold">Method</th>
+                  <th className="p-3 font-semibold">URL</th>
+                  <th className="p-3 font-semibold">Category</th>
+                  <th className="p-3 font-semibold">Status</th>
+                  <th className="p-3 font-semibold">Discovery Method</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-swiss-border-subtle font-mono text-xs">
                 {endpoints
                   .filter((ep) => !filterQuery || ep.url.toLowerCase().includes(filterQuery.toLowerCase()) || ep.endpoint_category.toLowerCase().includes(filterQuery.toLowerCase()))
                   .map((ep, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="p-3 font-mono text-cyan-400 font-semibold">{ep.method}</td>
-                      <td className="p-3 font-mono text-xs text-slate-200 break-all">{ep.url}</td>
+                    <tr key={idx} className="hover:bg-surface-subtle/80 transition-colors">
+                      <td className="p-3 font-bold text-accent">{ep.method}</td>
+                      <td className="p-3 text-ink-primary break-all">{ep.url}</td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                        <span className="px-1.5 py-0.5 text-[10px] bg-surface-subtle text-ink-secondary border border-swiss-border">
                           {ep.endpoint_category}
                         </span>
                       </td>
-                      <td className="p-3 font-mono text-xs text-slate-400">{ep.status_code || 200}</td>
-                      <td className="p-3 text-xs text-slate-500 font-mono">{ep.discovery_method}</td>
+                      <td className="p-3 text-ink-muted tabular-nums">{ep.status_code || 200}</td>
+                      <td className="p-3 text-ink-secondary">{ep.discovery_method}</td>
                     </tr>
                   ))}
               </tbody>
@@ -355,33 +376,33 @@ export default function AttackSurfaceDashboard() {
 
         {/* Parameters Tab */}
         {activeTab === "parameters" && (
-          <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/30">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase font-semibold">
+          <div className="border border-swiss-border bg-surface overflow-hidden">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-surface-subtle border-b border-swiss-border text-[11px] font-mono text-ink-muted uppercase">
                 <tr>
-                  <th className="p-3">Parameter</th>
-                  <th className="p-3">Location</th>
-                  <th className="p-3">Category</th>
-                  <th className="p-3">Confidence</th>
-                  <th className="p-3">Sample (Redacted)</th>
-                  <th className="p-3">Risk Signal</th>
+                  <th className="p-3 font-semibold">Parameter</th>
+                  <th className="p-3 font-semibold">Location</th>
+                  <th className="p-3 font-semibold">Category</th>
+                  <th className="p-3 font-semibold">Confidence</th>
+                  <th className="p-3 font-semibold">Sample (Redacted)</th>
+                  <th className="p-3 font-semibold">Risk Signal</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-swiss-border-subtle font-mono text-xs">
                 {parameters
                   .filter((param) => !filterQuery || param.name.toLowerCase().includes(filterQuery.toLowerCase()) || param.category.toLowerCase().includes(filterQuery.toLowerCase()))
                   .map((param, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="p-3 font-mono font-bold text-white">{param.name}</td>
-                      <td className="p-3 font-mono text-xs text-cyan-400">{param.location}</td>
+                    <tr key={idx} className="hover:bg-surface-subtle/80 transition-colors">
+                      <td className="p-3 font-bold text-ink-primary">{param.name}</td>
+                      <td className="p-3 text-accent">{param.location}</td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded text-xs font-mono bg-yellow-950/60 text-yellow-400 border border-yellow-800/40">
+                        <span className="px-1.5 py-0.5 text-[10px] bg-accent-subtle text-accent border border-accent/20 font-bold">
                           {param.category}
                         </span>
                       </td>
-                      <td className="p-3 text-slate-300">{Math.round(param.confidence * 100)}%</td>
-                      <td className="p-3 font-mono text-xs text-slate-400">{param.sample_values_redacted?.[0] || "-"}</td>
-                      <td className="p-3 text-xs text-red-400">{param.risk_signals?.[0] || "-"}</td>
+                      <td className="p-3 text-ink-secondary tabular-nums">{Math.round(param.confidence * 100)}%</td>
+                      <td className="p-3 text-ink-muted font-mono">{param.sample_values_redacted?.[0] || "-"}</td>
+                      <td className="p-3 text-[#C62828] dark:text-[#FF5252]">{param.risk_signals?.[0] || "-"}</td>
                     </tr>
                   ))}
               </tbody>
@@ -391,33 +412,33 @@ export default function AttackSurfaceDashboard() {
 
         {/* APIs Tab */}
         {activeTab === "apis" && (
-          <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/30">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase font-semibold">
+          <div className="border border-swiss-border bg-surface overflow-hidden">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-surface-subtle border-b border-swiss-border text-[11px] font-mono text-ink-muted uppercase">
                 <tr>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">Method</th>
-                  <th className="p-3">URL</th>
-                  <th className="p-3">Version</th>
-                  <th className="p-3">Auth Required</th>
+                  <th className="p-3 font-semibold">Type</th>
+                  <th className="p-3 font-semibold">Method</th>
+                  <th className="p-3 font-semibold">URL</th>
+                  <th className="p-3 font-semibold">Version</th>
+                  <th className="p-3 font-semibold">Auth Required</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-swiss-border-subtle font-mono text-xs">
                 {apis
                   .filter((api) => !filterQuery || api.url.toLowerCase().includes(filterQuery.toLowerCase()) || api.api_type.toLowerCase().includes(filterQuery.toLowerCase()))
                   .map((api, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="p-3 font-mono text-purple-400 font-semibold">{api.api_type}</td>
-                      <td className="p-3 font-mono text-cyan-400">{api.method}</td>
-                      <td className="p-3 font-mono text-xs text-slate-300 break-all">{api.url}</td>
-                      <td className="p-3 font-mono text-yellow-400">{api.version || "-"}</td>
+                    <tr key={idx} className="hover:bg-surface-subtle/80 transition-colors">
+                      <td className="p-3 font-bold text-[#2563EB] dark:text-[#60A5FA]">{api.api_type}</td>
+                      <td className="p-3 text-accent font-semibold">{api.method}</td>
+                      <td className="p-3 text-ink-primary break-all">{api.url}</td>
+                      <td className="p-3 text-ink-muted">{api.version || "-"}</td>
                       <td className="p-3">
                         {api.auth_required ? (
-                          <span className="px-2 py-0.5 rounded text-xs font-mono bg-red-950 text-red-400 border border-red-800/60">
+                          <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-[#FEE2E2] dark:bg-[#2B0F10] text-[#C62828] dark:text-[#FF5252] border border-[#F87171] dark:border-[#5C1D1E]">
                             REQUIRED
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-xs font-mono bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                          <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-[#ECFDF5] dark:bg-[#092015] text-[#15803D] dark:text-[#4ADE80] border border-[#6EE7B7] dark:border-[#065F46]">
                             PUBLIC
                           </span>
                         )}
@@ -431,27 +452,27 @@ export default function AttackSurfaceDashboard() {
 
         {/* Assets Tab */}
         {activeTab === "assets" && (
-          <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/30">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase font-semibold">
+          <div className="border border-swiss-border bg-surface overflow-hidden">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-surface-subtle border-b border-swiss-border text-[11px] font-mono text-ink-muted uppercase">
                 <tr>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">URL</th>
-                  <th className="p-3">MIME</th>
-                  <th className="p-3">Source</th>
-                  <th className="p-3">In Scope</th>
+                  <th className="p-3 font-semibold">Type</th>
+                  <th className="p-3 font-semibold">URL</th>
+                  <th className="p-3 font-semibold">MIME</th>
+                  <th className="p-3 font-semibold">Source</th>
+                  <th className="p-3 font-semibold">In Scope</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-swiss-border-subtle font-mono text-xs">
                 {assets
                   .filter((asset) => !filterQuery || asset.url.toLowerCase().includes(filterQuery.toLowerCase()) || asset.asset_type.toLowerCase().includes(filterQuery.toLowerCase()))
                   .map((asset, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="p-3 font-mono text-blue-400">{asset.asset_type}</td>
-                      <td className="p-3 font-mono text-xs text-slate-300 break-all">{asset.url}</td>
-                      <td className="p-3 text-xs text-slate-400">{asset.mime_type || "-"}</td>
-                      <td className="p-3 text-xs text-slate-400">{asset.discovery_source}</td>
-                      <td className="p-3 text-xs text-emerald-400">{asset.in_scope ? "YES" : "NO"}</td>
+                    <tr key={idx} className="hover:bg-surface-subtle/80 transition-colors">
+                      <td className="p-3 font-bold text-ink-secondary">{asset.asset_type}</td>
+                      <td className="p-3 text-ink-primary break-all">{asset.url}</td>
+                      <td className="p-3 text-ink-muted">{asset.mime_type || "-"}</td>
+                      <td className="p-3 text-ink-muted">{asset.discovery_source}</td>
+                      <td className="p-3 font-bold text-[#15803D] dark:text-[#4ADE80]">{asset.in_scope ? "YES" : "NO"}</td>
                     </tr>
                   ))}
               </tbody>
@@ -461,21 +482,22 @@ export default function AttackSurfaceDashboard() {
 
         {/* Attack Surface Graph Tab */}
         {activeTab === "graph" && (
-          <div className="border border-slate-800 rounded-xl p-6 bg-slate-900/30 space-y-4">
+          <div className="border border-swiss-border bg-surface p-4 sm:p-5 space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
-                <h3 className="text-base font-semibold text-white">Graph Topology Explorer</h3>
-                <p className="text-xs text-slate-400">
+                <h3 className="text-sm font-mono font-bold text-ink-primary uppercase tracking-wider">
+                  Graph Topology Explorer
+                </h3>
+                <p className="text-xs font-mono text-ink-muted mt-0.5">
                   {graph?.node_count || 0} nodes and {graph?.edge_count || 0} directed edges mapped
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                {/* Node type filter */}
+              <div className="flex items-center gap-2 font-mono text-xs">
                 <select
                   value={selectedNodeType}
                   onChange={(e) => setSelectedNodeType(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-300"
+                  className="px-2.5 py-1.5 bg-surface-subtle border border-swiss-border text-xs text-ink-primary rounded-none"
                 >
                   <option value="ALL">All Nodes</option>
                   <option value="DOMAIN">Domains</option>
@@ -485,28 +507,27 @@ export default function AttackSurfaceDashboard() {
                   <option value="JS_ASSET">JS Assets</option>
                 </select>
 
-                {/* Zoom Controls */}
-                <div className="flex items-center border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+                <div className="flex items-center border border-swiss-border bg-surface-subtle">
                   <button
                     onClick={() => setGraphZoom((z) => Math.max(0.5, z - 0.2))}
-                    className="px-2 py-1 text-slate-400 hover:text-white text-xs border-r border-slate-800"
+                    className="px-2 py-1 text-ink-secondary hover:text-ink-primary border-r border-swiss-border"
                     title="Zoom Out"
                   >
                     -
                   </button>
-                  <span className="px-2 py-1 text-[10px] font-mono text-slate-400">
+                  <span className="px-2 py-1 text-[10px] font-mono text-ink-muted tabular-nums">
                     {Math.round(graphZoom * 100)}%
                   </span>
                   <button
                     onClick={() => setGraphZoom((z) => Math.min(2.0, z + 0.2))}
-                    className="px-2 py-1 text-slate-400 hover:text-white text-xs border-l border-slate-800"
+                    className="px-2 py-1 text-ink-secondary hover:text-ink-primary border-l border-swiss-border"
                     title="Zoom In"
                   >
                     +
                   </button>
                 </div>
 
-                <button
+                <Button
                   onClick={() => {
                     const blob = new Blob([JSON.stringify(graph, null, 2)], { type: "application/json" });
                     const url = URL.createObjectURL(blob);
@@ -516,52 +537,41 @@ export default function AttackSurfaceDashboard() {
                     a.click();
                   }}
                   disabled={!graph}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 transition-colors"
+                  variant="outline"
+                  size="sm"
                 >
                   Export Graph JSON
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Visual Canvas Representation */}
             <div
-              className="border border-slate-800/80 rounded-xl bg-slate-950 p-6 min-h-[350px] overflow-auto transition-transform"
+              className="border border-swiss-border bg-surface-subtle p-5 min-h-[350px] overflow-auto transition-transform"
               style={{ transform: `scale(${graphZoom})`, transformOrigin: "top left" }}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
                 {graph?.nodes
                   ?.filter((n) => selectedNodeType === "ALL" || n.node_type === selectedNodeType)
                   ?.slice(0, 48)
                   ?.map((n) => (
                     <div
                       key={n.id}
-                      className="p-3 rounded-lg border border-slate-800 bg-slate-900/60 hover:border-cyan-500/50 transition-colors space-y-1.5"
+                      className="p-3 border border-swiss-border bg-surface hover:border-accent transition-colors space-y-1 font-mono text-xs"
                     >
                       <div className="flex justify-between items-center">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
-                            n.node_type === "DOMAIN"
-                              ? "bg-emerald-950 text-emerald-400 border border-emerald-800/60"
-                              : n.node_type === "API_ROUTE"
-                              ? "bg-purple-950 text-purple-400 border border-purple-800/60"
-                              : n.node_type === "PARAMETER"
-                              ? "bg-yellow-950 text-yellow-400 border border-yellow-800/60"
-                              : n.node_type === "FINDING"
-                              ? "bg-red-950 text-red-400 border border-red-800/60"
-                              : "bg-slate-800 text-slate-300"
-                          }`}
-                        >
+                        <span className="px-1.5 py-0.5 text-[9px] font-bold tracking-widest border border-swiss-border bg-surface-subtle uppercase">
                           {n.node_type}
                         </span>
                       </div>
-                      <p className="text-xs font-semibold text-slate-200 truncate">{n.label}</p>
-                      <p className="text-[10px] font-mono text-slate-500 truncate">{n.id}</p>
+                      <p className="font-bold text-ink-primary truncate">{n.label}</p>
+                      <p className="text-[10px] text-ink-muted truncate">{n.id}</p>
                     </div>
                   ))}
               </div>
 
               {(!graph?.nodes || graph.nodes.length === 0) && (
-                <div className="p-12 text-center text-slate-500 text-sm">
+                <div className="p-12 text-center text-ink-muted text-xs font-mono">
                   No topology nodes to display.
                 </div>
               )}

@@ -112,12 +112,12 @@ async def test_path_traversal_analyzer_two_phase_verification_and_fp_suppression
     # Case 1: Genuine Unix /etc/passwd leak absent from negative control
     client_vuln = MagicMock()
 
-    async def get_vuln(url, **kwargs):
+    async def get_vuln(url, headers=None, follow_redirects=True):
         if "ashlynx_nonexistent" in url:
-            return SimpleNamespace(status_code=404, text="File not found")
+            return SimpleNamespace(status_code=404, text="File not found"), None
         if "etc%2Fpasswd" in url or "etc/passwd" in url:
-            return SimpleNamespace(status_code=200, text="root:x:0:0:root:/root:/bin/bash\n")
-        return SimpleNamespace(status_code=404, text="Not found")
+            return SimpleNamespace(status_code=200, text="root:x:0:0:root:/root:/bin/bash\n"), None
+        return SimpleNamespace(status_code=404, text="Not found"), None
 
     client_vuln.get = AsyncMock(side_effect=get_vuln)
     target = ActiveTarget(
@@ -133,7 +133,7 @@ async def test_path_traversal_analyzer_two_phase_verification_and_fp_suppression
 
     # Case 2: Static error page returning error text even on negative control -> suppressed
     client_fp = MagicMock()
-    client_fp.get = AsyncMock(return_value=SimpleNamespace(status_code=200, text="No such file or directory"))
+    client_fp.get = AsyncMock(return_value=(SimpleNamespace(status_code=200, text="No such file or directory"), None))
     fp_findings = await analyzer.check(target, client_fp, RequestBudgetTracker(budget=10), scan_id)
     assert fp_findings == []
 
@@ -145,17 +145,17 @@ async def test_api_security_analyzer_detects_graphql_swagger_and_method_override
 
     client = MagicMock()
 
-    async def mock_get(url, headers=None, **kwargs):
+    async def mock_get(url, headers=None, follow_redirects=True):
         if url.endswith("/openapi.json"):
-            return SimpleNamespace(status_code=200, text='{"openapi":"3.0.0","paths":{"/users":{}}}')
+            return SimpleNamespace(status_code=200, text='{"openapi":"3.0.0","paths":{"/users":{}}}'), None
         if headers and headers.get("X-HTTP-Method-Override") == "HEAD":
-            return SimpleNamespace(status_code=200, text="")
-        return SimpleNamespace(status_code=404, text="")
+            return SimpleNamespace(status_code=200, text=""), None
+        return SimpleNamespace(status_code=404, text=""), None
 
-    async def mock_post(url, json=None, content=None, headers=None, **kwargs):
+    async def mock_post(url, json=None, content=None, headers=None, follow_redirects=True):
         if "graphql" in url:
-            return SimpleNamespace(status_code=200, text='{"data":{"__schema":{"types":[{"name":"Query"}]}}}')
-        return SimpleNamespace(status_code=415, text="")
+            return SimpleNamespace(status_code=200, text='{"data":{"__schema":{"types":[{"name":"Query"}]}}}'), None
+        return SimpleNamespace(status_code=415, text=""), None
 
     client.get = AsyncMock(side_effect=mock_get)
     client.post = AsyncMock(side_effect=mock_post)

@@ -1,5 +1,5 @@
 import os
-from typing import List, Union
+from typing import List, Optional, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,10 +19,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "insecure-dev-secret-key-change-in-production"
     API_PREFIX: str = "/api/v1"
 
-    # Server settings
-    HOST: str = "0.0.0.0"
+    # Server settings (loopback-only by default for local workstation security)
+    HOST: str = "127.0.0.1"
     PORT: int = 8000
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    API_AUTH_TOKEN: Optional[str] = None
+    ENFORCE_LOCAL_BOUNDARY: bool = True
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod

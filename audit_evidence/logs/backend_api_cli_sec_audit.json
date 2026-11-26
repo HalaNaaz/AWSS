@@ -1,0 +1,220 @@
+{
+  "api_tests": [
+    {
+      "name": "GET /healthz",
+      "passed": true,
+      "details": "HTTP 200"
+    },
+    {
+      "name": "GET /api/v1/healthz",
+      "passed": true,
+      "details": "HTTP 200"
+    },
+    {
+      "name": "GET /api/v1/readyz",
+      "passed": true,
+      "details": "HTTP 200"
+    },
+    {
+      "name": "GET /api/v1/openapi.json",
+      "passed": true,
+      "details": "HTTP 200"
+    },
+    {
+      "name": "Empty JSON body POST /scans/",
+      "passed": true,
+      "details": "HTTP 422"
+    },
+    {
+      "name": "Invalid URL scheme POST /scans/",
+      "passed": true,
+      "details": "HTTP 422"
+    },
+    {
+      "name": "Non-HTTP URL POST /scans/",
+      "passed": true,
+      "details": "HTTP 422"
+    },
+    {
+      "name": "Boundary max_urls=0 POST /scans/",
+      "passed": true,
+      "details": "HTTP 422"
+    },
+    {
+      "name": "Boundary max_urls=99999 POST /scans/",
+      "passed": true,
+      "details": "HTTP 422"
+    },
+    {
+      "name": "Active Probe Rejects Unknown Target UUID",
+      "passed": true,
+      "details": "HTTP 404"
+    },
+    {
+      "name": "Phase 7 Analyzer Counts",
+      "passed": true,
+      "details": "active=8, passive=9"
+    },
+    {
+      "name": "Backend /api/v1/targets/ Persistence Endpoint Check",
+      "passed": true,
+      "details": "HTTP 404 (Target CRUD is UI-only state; no backend /targets endpoint)"
+    },
+    {
+      "name": "Scan Not Found (404) & Malformed UUID (422)",
+      "passed": true,
+      "details": "404=404, 422=422"
+    },
+    {
+      "name": "Reports SARIF Format Handling",
+      "passed": true,
+      "details": "HTTP 400 ({\"detail\":\"Unsupported report format: 'ReportFormat.SARIF'. Supported formats: [<ReportFormat.JSON: )"
+    }
+  ],
+  "scanner_tests": [
+    {
+      "name": "Live APISecurityAnalyzer against Real AsyncHTTPClient",
+      "passed": true,
+      "details": "findings=1 (expected ACT-API-SWAGGER-EXPOSED on /openapi.json)"
+    },
+    {
+      "name": "Live PathTraversalAnalyzer against Real AsyncHTTPClient",
+      "passed": true,
+      "details": "http_requests_sent=3 (expected > 0)"
+    }
+  ],
+  "cli_tests": [
+    {
+      "name": "CLI --help",
+      "passed": true,
+      "details": "rc=0 (expected 0)"
+    },
+    {
+      "name": "CLI version",
+      "passed": true,
+      "details": "rc=0 (expected 0)"
+    },
+    {
+      "name": "CLI scan without --authorized (Safety Gate)",
+      "passed": true,
+      "details": "rc=2 (expected 2)"
+    },
+    {
+      "name": "CLI scan invalid profile",
+      "passed": true,
+      "details": "rc=2 (expected 2)"
+    },
+    {
+      "name": "CLI scan invalid URL",
+      "passed": true,
+      "details": "rc=2 (expected 2)"
+    },
+    {
+      "name": "CLI scan quick-assessment + JSON file export",
+      "passed": true,
+      "details": "rc=0 (expected 0)"
+    },
+    {
+      "name": "CLI JSON Export File Exists & Valid JSON",
+      "passed": true,
+      "details": "exists=True"
+    }
+  ],
+  "security_tests": [
+    {
+      "name": "Security & Correlation Headers Present",
+      "passed": true,
+      "details": "{\"X-Content-Type-Options\": \"nosniff\", \"X-Frame-Options\": \"DENY\", \"Referrer-Policy\": \"strict-origin-when-cross-origin\", \"Strict-Transport-Security\": \"max-age=31536000; includeSubDomains\", \"X-Correlation-ID\": \"a3ab6eae-eba4-448b-a8ec-f1315e2a6bdb\"}"
+    },
+    {
+      "name": "CORS Rejects Untrusted Origin",
+      "passed": true,
+      "details": "acao=None"
+    },
+    {
+      "name": "CORS Allows Trusted Frontend Origin",
+      "passed": true,
+      "details": "acao=http://localhost:3000"
+    },
+    {
+      "name": "API Auth Boundary Inspection",
+      "passed": true,
+      "details": "GET /api/v1/scans/ without auth header returned HTTP 200 (no API bearer auth enforced in local MVP workstation mode)"
+    },
+    {
+      "name": "Active Probe Safety Gate Rejects authorized=False",
+      "passed": true,
+      "details": "HTTP 403"
+    },
+    {
+      "name": "Active Probe Rejects Mutating PUT Method",
+      "passed": true,
+      "details": "HTTP 400"
+    },
+    {
+      "name": "HTML Report Escapes Untrusted <ashxtag> Reflection",
+      "passed": true,
+      "details": "raw_unescaped=False, html_escaped=True"
+    },
+    {
+      "name": "ScopeGate Prohibits Private/Loopback/Metadata/IPv6-Mapped CIDRs",
+      "passed": true,
+      "details": "tested=11"
+    },
+    {
+      "name": "ScopeGate Permits Public Routable IP",
+      "passed": true,
+      "details": "93.184.216.34 allowed"
+    },
+    {
+      "name": "ScopeGate Rejects Out-of-Scope Redirect",
+      "passed": true,
+      "details": "evil.outside.com rejected"
+    },
+    {
+      "name": "EvidenceRedactor Masks All Sensitive Artifacts & Deterministic SHA-256",
+      "passed": true,
+      "details": "leaked=False, sha256_len=64"
+    },
+    {
+      "name": "ReportManager Blocks Path Traversal Exports",
+      "passed": true,
+      "details": "blocked ../../evil.json"
+    }
+  ],
+  "performance_tests": [
+    {
+      "name": "Synchronous SAFE_ACTIVE Scan Latency",
+      "passed": true,
+      "details": "elapsed=2.59s, findings=91"
+    },
+    {
+      "name": "API Latency GET /scans/",
+      "passed": true,
+      "details": "3.58ms (HTTP 200)"
+    },
+    {
+      "name": "API Latency GET /findings/",
+      "passed": true,
+      "details": "8.24ms (HTTP 200)"
+    },
+    {
+      "name": "API Latency GET /discovery/graph",
+      "passed": true,
+      "details": "7.73ms (HTTP 200)"
+    },
+    {
+      "name": "API Latency GET /analytics/overview",
+      "passed": true,
+      "details": "5.42ms (HTTP 200)"
+    }
+  ],
+  "defects": [
+    {
+      "id": "SEC-AUTH-01",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "details": "FastAPI backend endpoints (/api/v1/scans/, /findings/, /reports/) do not enforce authentication/RBAC tokens (expected only for local single-user workstation; unsafe for shared/networked exposure)."
+    }
+  ]
+}

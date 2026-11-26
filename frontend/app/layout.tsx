@@ -1,6 +1,27 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Space_Grotesk, Plus_Jakarta_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "../components/theme-provider";
+import { AppShell } from "../components/app-shell";
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-ibm-plex-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Ashlynx WebSec Scanner | Enterprise DAST Dashboard",
@@ -13,39 +34,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#090d16] text-slate-100 antialiased">
-        <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20">
-                A
-              </div>
-              <div>
-                <span className="font-bold tracking-tight text-white text-lg">ASHLYNX</span>
-                <span className="text-xs text-cyan-400 font-mono ml-2 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-800/50">WEBSEC</span>
-              </div>
-            </div>
-            <nav className="flex items-center space-x-6 text-sm font-medium text-slate-400">
-              <Link href="/" className="hover:text-cyan-300">Dashboard</Link>
-              <Link href="/attack-surface" className="text-cyan-400 hover:text-cyan-300">Attack Surface</Link>
-              <Link href="/scans" className="hover:text-slate-200">Scans</Link>
-              <Link href="/targets" className="hover:text-slate-200">Targets</Link>
-              <Link href="/findings" className="hover:text-slate-200">Findings</Link>
-              <Link href="/analytics" className="hover:text-cyan-300">Analytics</Link>
-              <Link href="/reports" className="hover:text-slate-200">Reports</Link>
-            </nav>
-            <div className="flex items-center space-x-3">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
-                Engine Ready
-              </span>
-            </div>
-          </div>
-        </header>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {children}
-        </main>
+    <html
+      lang="en"
+      className={`${spaceGrotesk.variable} ${plusJakartaSans.variable} ${ibmPlexMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="antialiased min-h-screen">
+        <ThemeProvider>
+          <AppShell>{children}</AppShell>
+        </ThemeProvider>
       </body>
     </html>
   );

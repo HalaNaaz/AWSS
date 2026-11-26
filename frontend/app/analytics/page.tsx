@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { fetchApi } from "../../services/api-client";
+import { PanelHeader, MetricCell, Button } from "../../components/ui/swiss-components";
 import type {
   ContextAssessmentReport,
   EvidenceIntelligenceSummary,
@@ -108,45 +109,40 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="border border-slate-800 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900/60 to-slate-900 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-cyan-950 text-cyan-400 border border-cyan-800/60">
-              PHASE 6
+      <PanelHeader
+        tag="07 // PHASE 6"
+        title="Security Scanning Intelligence & Analytics"
+        subtitle="Explainable scan planning, OWASP Top 10:2021 coverage intelligence, execution reliability, evidence quality, and scan comparison"
+        actions={
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="font-mono text-[10px] uppercase text-ink-muted tracking-wider whitespace-nowrap">
+              Scope Telemetry:
             </span>
-            <h1 className="text-2xl font-bold text-white">Security Scanning Intelligence & Analytics</h1>
+            <select
+              aria-label="Select Scan for Telemetry"
+              value={selectedScanId}
+              onChange={(e) => setSelectedScanId(e.target.value)}
+              className="px-3 py-2 bg-surface-subtle border border-swiss-border text-xs text-ink-primary font-mono focus:outline-none focus:border-accent w-full sm:w-auto"
+            >
+              <option value="">Select Completed Scan...</option>
+              {scans.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.target_url} ({s.status})
+                </option>
+              ))}
+            </select>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Explainable scan planning, OWASP Top 10:2021 coverage intelligence, execution reliability, evidence quality, and scan comparison
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <select
-            aria-label="Select Scan for Telemetry"
-            value={selectedScanId}
-            onChange={(e) => setSelectedScanId(e.target.value)}
-            className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono"
-          >
-            <option value="">Select Completed Scan...</option>
-            {scans.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.target_url} ({s.status})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
-        <div className="p-3 rounded-lg border border-red-900/60 bg-red-950/30 text-xs text-red-300">
+        <div className="p-3 border-l-2 border-l-accent border border-swiss-border bg-surface text-xs font-mono text-accent">
           {error}
         </div>
       )}
 
-      {/* Navigation Tabs */}
-      <div className="border-b border-slate-800 flex flex-wrap gap-4 text-sm font-medium">
+      {/* Modular Swiss Navigation Tabs */}
+      <div className="border border-swiss-border bg-surface flex flex-wrap text-xs font-mono uppercase tracking-wider">
         {[
           { id: "overview", label: "Analytics Overview" },
           { id: "planner", label: "Scan Plan & Context" },
@@ -157,10 +153,10 @@ export default function AnalyticsPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`pb-3 px-1 border-b-2 transition-colors ${
+            className={`py-3 px-4 sm:px-5 border-r border-b md:border-b-0 border-swiss-border transition-colors ${
               activeTab === tab.id
-                ? "border-cyan-500 text-cyan-400 font-semibold"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "bg-surface-subtle text-accent font-bold border-t-2 border-t-accent"
+                : "text-ink-muted hover:text-ink-primary hover:bg-surface-subtle"
             }`}
           >
             {tab.label}
@@ -169,7 +165,7 @@ export default function AnalyticsPage() {
       </div>
 
       {loading && !analytics ? (
-        <div className="p-12 text-center text-slate-400 border border-slate-800 rounded-xl">
+        <div className="p-12 text-center text-ink-muted border border-dashed border-swiss-border bg-surface font-mono text-xs uppercase tracking-wider">
           Loading real-time security analytics...
         </div>
       ) : (
@@ -178,64 +174,97 @@ export default function AnalyticsPage() {
           {activeTab === "overview" && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Scans Analyzed</span>
-                  <p className="text-2xl font-bold text-white mt-1">{analytics?.total_scans_analyzed || 0}</p>
-                </div>
-                <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Total Findings</span>
-                  <p className="text-2xl font-bold text-cyan-400 mt-1">{analytics?.total_findings_across_scans || 0}</p>
-                </div>
-                <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Avg DAST Coverage</span>
-                  <p className="text-2xl font-bold text-emerald-400 mt-1">{analytics?.average_dast_coverage_percent || 0}%</p>
-                </div>
-                <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Tech Patterns</span>
-                  <p className="text-2xl font-bold text-purple-400 mt-1">
-                    {Object.keys(analytics?.technology_risk_patterns || {}).length}
-                  </p>
-                </div>
+                <MetricCell
+                  index="01"
+                  label="Scans Analyzed"
+                  value={analytics?.total_scans_analyzed || 0}
+                  trend="Lifetime scans"
+                />
+                <MetricCell
+                  index="02"
+                  label="Total Findings"
+                  value={analytics?.total_findings_across_scans || 0}
+                  trend="Detections across runs"
+                />
+                <MetricCell
+                  index="03"
+                  label="Avg DAST Coverage"
+                  value={`${analytics?.average_dast_coverage_percent || 0}%`}
+                  trend="OWASP Top 10 coverage"
+                />
+                <MetricCell
+                  index="04"
+                  label="Tech Patterns"
+                  value={Object.keys(analytics?.technology_risk_patterns || {}).length}
+                  trend="Identified frameworks"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
-                  <h3 className="text-sm font-semibold text-white">Top Vulnerable Categories</h3>
-                  {Object.entries(analytics?.top_vulnerable_categories || {}).map(([cat, count]) => (
-                    <div key={cat} className="flex justify-between text-xs py-1 border-b border-slate-800/60">
-                      <span className="font-mono text-slate-300">{cat}</span>
-                      <span className="font-bold text-cyan-400">{count}</span>
-                    </div>
-                  ))}
-                  {Object.keys(analytics?.top_vulnerable_categories || {}).length === 0 && (
-                    <p className="text-xs text-slate-500">No scan findings recorded yet.</p>
-                  )}
+                <div className="border border-swiss-border bg-surface p-5 space-y-4">
+                  <div className="border-b border-swiss-border pb-2">
+                    <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                      DISTRIBUTION
+                    </span>
+                    <h3 className="font-sans font-bold text-sm text-ink-primary">
+                      Top Vulnerable Categories
+                    </h3>
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(analytics?.top_vulnerable_categories || {}).map(([cat, count]) => (
+                      <div key={cat} className="flex justify-between items-center text-xs py-2 border-b border-swiss-border-subtle">
+                        <span className="font-mono text-ink-primary">{cat}</span>
+                        <span className="font-mono font-bold text-accent">{count}</span>
+                      </div>
+                    ))}
+                    {Object.keys(analytics?.top_vulnerable_categories || {}).length === 0 && (
+                      <p className="text-xs font-mono text-ink-muted py-2">No scan findings recorded yet.</p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
-                  <h3 className="text-sm font-semibold text-white">Endpoint Exposure Breakdown</h3>
-                  {Object.entries(analytics?.endpoint_exposure_breakdown || {}).map(([exp, count]) => (
-                    <div key={exp} className="flex justify-between text-xs py-1 border-b border-slate-800/60">
-                      <span className="font-mono text-slate-300">{exp}</span>
-                      <span className="font-bold text-amber-400">{count}</span>
-                    </div>
-                  ))}
-                  {Object.keys(analytics?.endpoint_exposure_breakdown || {}).length === 0 && (
-                    <p className="text-xs text-slate-500">No exposure telemetry yet.</p>
-                  )}
+                <div className="border border-swiss-border bg-surface p-5 space-y-4">
+                  <div className="border-b border-swiss-border pb-2">
+                    <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                      SURFACE
+                    </span>
+                    <h3 className="font-sans font-bold text-sm text-ink-primary">
+                      Endpoint Exposure Breakdown
+                    </h3>
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(analytics?.endpoint_exposure_breakdown || {}).map(([exp, count]) => (
+                      <div key={exp} className="flex justify-between items-center text-xs py-2 border-b border-swiss-border-subtle">
+                        <span className="font-mono text-ink-primary">{exp}</span>
+                        <span className="font-mono font-bold text-ink-primary">{count}</span>
+                      </div>
+                    ))}
+                    {Object.keys(analytics?.endpoint_exposure_breakdown || {}).length === 0 && (
+                      <p className="text-xs font-mono text-ink-muted py-2">No exposure telemetry yet.</p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
-                  <h3 className="text-sm font-semibold text-white">Technology Risk Patterns</h3>
-                  {Object.entries(analytics?.technology_risk_patterns || {}).map(([tech, count]) => (
-                    <div key={tech} className="flex justify-between text-xs py-1 border-b border-slate-800/60">
-                      <span className="font-mono text-slate-300">{tech}</span>
-                      <span className="font-bold text-purple-400">{count}</span>
-                    </div>
-                  ))}
-                  {Object.keys(analytics?.technology_risk_patterns || {}).length === 0 && (
-                    <p className="text-xs text-slate-500">No technology patterns observed yet.</p>
-                  )}
+                <div className="border border-swiss-border bg-surface p-5 space-y-4">
+                  <div className="border-b border-swiss-border pb-2">
+                    <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                      PATTERNS
+                    </span>
+                    <h3 className="font-sans font-bold text-sm text-ink-primary">
+                      Technology Risk Patterns
+                    </h3>
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(analytics?.technology_risk_patterns || {}).map(([tech, count]) => (
+                      <div key={tech} className="flex justify-between items-center text-xs py-2 border-b border-swiss-border-subtle">
+                        <span className="font-mono text-ink-primary">{tech}</span>
+                        <span className="font-mono font-bold text-accent">{count}</span>
+                      </div>
+                    ))}
+                    {Object.keys(analytics?.technology_risk_patterns || {}).length === 0 && (
+                      <p className="text-xs font-mono text-ink-muted py-2">No technology patterns observed yet.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -245,59 +274,96 @@ export default function AnalyticsPage() {
           {activeTab === "planner" && (
             <div className="space-y-6">
               {scanPlan ? (
-                <div className="border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-base font-semibold text-white">Explainable Scan Plan</h3>
-                    <span className="text-xs font-mono text-cyan-400">
-                      Budget: {scanPlan.estimated_total_probes}/{scanPlan.allocated_probe_budget} probes
+                <div className="border border-swiss-border bg-surface p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-swiss-border pb-4">
+                    <div>
+                      <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                        DETERMINISTIC PLANNER
+                      </span>
+                      <h3 className="font-sans font-bold text-base text-ink-primary">
+                        Explainable Scan Plan
+                      </h3>
+                    </div>
+                    <span className="font-mono text-xs px-2.5 py-1 bg-surface-subtle border border-swiss-border text-accent font-semibold">
+                      Budget: {scanPlan.estimated_total_probes} / {scanPlan.allocated_probe_budget} probes
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300">{scanPlan.planner_summary}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <span className="text-xs font-semibold text-emerald-400">
-                        Planned Active Targets ({scanPlan.planned_targets_count})
-                      </span>
-                      {scanPlan.planned_checks.slice(0, 12).map((p, idx) => (
-                        <div key={idx} className="p-2.5 rounded border border-slate-800 bg-slate-950/60 text-xs space-y-1">
-                          <div className="font-mono text-cyan-300 break-all">{p.method} {p.url}</div>
-                          <div className="text-[11px] text-slate-400">Analyzers: {p.selected_analyzers.join(", ")}</div>
-                          <div className="text-[11px] text-slate-500">{p.rationale}</div>
-                        </div>
-                      ))}
+                  <p className="font-mono text-xs text-ink-secondary leading-relaxed">
+                    {scanPlan.planner_summary}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center border-b border-swiss-border pb-2">
+                        <span className="font-mono text-xs font-bold uppercase text-ink-primary tracking-wider">
+                          Planned Active Targets ({scanPlan.planned_targets_count})
+                        </span>
+                      </div>
+                      <div className="space-y-2 max-h-[500px] overflow-auto pr-1">
+                        {scanPlan.planned_checks.slice(0, 16).map((p, idx) => (
+                          <div key={idx} className="p-3 border border-swiss-border bg-surface-subtle text-xs space-y-1">
+                            <div className="font-mono text-accent font-bold break-all">
+                              {p.method} {p.url}
+                            </div>
+                            <div className="font-mono text-[11px] text-ink-muted">
+                              Analyzers: {p.selected_analyzers.join(", ")}
+                            </div>
+                            <div className="text-[11px] text-ink-primary">
+                              {p.rationale}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <span className="text-xs font-semibold text-amber-400">
-                        Pruned / Skipped Checks ({scanPlan.skipped_targets_count})
-                      </span>
-                      {scanPlan.skipped_checks.slice(0, 12).map((s, idx) => (
-                        <div key={idx} className="p-2.5 rounded border border-slate-800 bg-slate-950/60 text-xs space-y-1">
-                          <div className="font-mono text-slate-300 break-all">{s.url}</div>
-                          <div className="text-[11px] text-amber-300">{s.reason}</div>
-                        </div>
-                      ))}
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center border-b border-swiss-border pb-2">
+                        <span className="font-mono text-xs font-bold uppercase text-ink-muted tracking-wider">
+                          Pruned / Skipped Checks ({scanPlan.skipped_targets_count})
+                        </span>
+                      </div>
+                      <div className="space-y-2 max-h-[500px] overflow-auto pr-1">
+                        {scanPlan.skipped_checks.slice(0, 16).map((s, idx) => (
+                          <div key={idx} className="p-3 border border-dashed border-swiss-border bg-surface-subtle text-xs space-y-1">
+                            <div className="font-mono text-ink-primary break-all">
+                              {s.url}
+                            </div>
+                            <div className="font-mono text-[11px] text-ink-muted">
+                              {s.reason}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center text-slate-500 border border-slate-800 rounded-xl">
+                <div className="p-12 text-center text-ink-muted border border-dashed border-swiss-border bg-surface font-mono text-xs uppercase tracking-wider">
                   Select a completed scan above to inspect its generated scan plan.
                 </div>
               )}
 
               {contextReport && contextReport.suggestions.length > 0 && (
-                <div className="border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-3">
-                  <h3 className="text-base font-semibold text-white">Context-Aware Assessment Suggestions</h3>
-                  <p className="text-xs text-slate-400">{contextReport.summary}</p>
+                <div className="border border-swiss-border bg-surface p-6 space-y-4">
+                  <div className="border-b border-swiss-border pb-2">
+                    <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                      ASSESSMENT INTEL
+                    </span>
+                    <h3 className="font-sans font-bold text-base text-ink-primary">
+                      Context-Aware Assessment Suggestions
+                    </h3>
+                  </div>
+                  <p className="font-mono text-xs text-ink-muted">{contextReport.summary}</p>
                   <div className="space-y-2">
                     {contextReport.suggestions.map((sg) => (
-                      <div key={sg.suggestion_id} className="p-3 rounded-lg border border-slate-800 bg-slate-950/60 text-xs space-y-1">
-                        <div className="flex justify-between">
-                          <span className="font-mono font-semibold text-cyan-400">{sg.category}</span>
-                          <span className="font-mono text-amber-400">{sg.priority}</span>
+                      <div key={sg.suggestion_id} className="p-3 border border-swiss-border bg-surface-subtle text-xs space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono font-bold text-accent">{sg.category}</span>
+                          <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 bg-surface border border-swiss-border text-ink-primary">
+                            {sg.priority}
+                          </span>
                         </div>
-                        <div className="font-mono text-slate-300 break-all">{sg.target_url}</div>
-                        <p className="text-slate-300">{sg.recommended_safe_check}</p>
+                        <div className="font-mono text-ink-primary break-all">{sg.target_url}</div>
+                        <p className="text-ink-secondary leading-relaxed">{sg.recommended_safe_check}</p>
                       </div>
                     ))}
                   </div>
@@ -310,33 +376,38 @@ export default function AnalyticsPage() {
           {activeTab === "coverage" && (
             <div className="space-y-4">
               {coverage ? (
-                <div className="border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-4">
-                  <div className="flex flex-wrap justify-between items-center gap-2">
+                <div className="border border-swiss-border bg-surface p-6 space-y-6">
+                  <div className="flex flex-wrap justify-between items-start gap-4 border-b border-swiss-border pb-4">
                     <div>
-                      <h3 className="text-base font-semibold text-white">OWASP Top 10:2021 Security Coverage Matrix</h3>
-                      <p className="text-xs text-slate-400 mt-1">{coverage.honesty_disclaimer}</p>
+                      <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                        BENCHMARK COMPLIANCE
+                      </span>
+                      <h3 className="font-sans font-bold text-base text-ink-primary">
+                        OWASP Top 10:2021 Security Coverage Matrix
+                      </h3>
+                      <p className="font-mono text-xs text-ink-muted mt-1">{coverage.honesty_disclaimer}</p>
                     </div>
-                    <span className="px-3 py-1 rounded-lg bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono text-sm font-bold">
+                    <span className="px-3 py-1.5 bg-surface-subtle border border-swiss-border text-accent font-mono text-sm font-bold">
                       {coverage.overall_dast_coverage_percent}% DAST Coverage
                     </span>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto border border-swiss-border">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase">
+                      <thead className="bg-surface-subtle border-b border-swiss-border font-mono text-[10px] text-ink-muted uppercase tracking-wider">
                         <tr>
-                          <th className="p-3">Category</th>
-                          <th className="p-3">Status</th>
-                          <th className="p-3">Findings</th>
-                          <th className="p-3">Explanation</th>
+                          <th className="p-3 font-medium">Category</th>
+                          <th className="p-3 font-medium">Status</th>
+                          <th className="p-3 font-medium">Findings</th>
+                          <th className="p-3 font-medium">Explanation</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/60">
+                      <tbody className="divide-y divide-swiss-border-subtle">
                         {coverage.owasp_categories.map((c) => (
-                          <tr key={c.owasp_id}>
-                            <td className="p-3 font-semibold text-white">{c.owasp_id} {c.owasp_name}</td>
-                            <td className="p-3 font-mono text-cyan-400">{c.status}</td>
-                            <td className="p-3 font-mono text-slate-200">{c.findings_detected}</td>
-                            <td className="p-3 text-slate-400">{c.explanation}</td>
+                          <tr key={c.owasp_id} className="hover:bg-surface-subtle/50">
+                            <td className="p-3 font-mono font-semibold text-ink-primary">{c.owasp_id} {c.owasp_name}</td>
+                            <td className="p-3 font-mono text-accent font-semibold">{c.status}</td>
+                            <td className="p-3 font-mono text-ink-primary">{c.findings_detected}</td>
+                            <td className="p-3 font-sans text-ink-secondary text-[11px] leading-relaxed">{c.explanation}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -344,7 +415,7 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center text-slate-500 border border-slate-800 rounded-xl">
+                <div className="p-12 text-center text-ink-muted border border-dashed border-swiss-border bg-surface font-mono text-xs uppercase tracking-wider">
                   Select a completed scan to inspect OWASP coverage telemetry.
                 </div>
               )}
@@ -354,60 +425,76 @@ export default function AnalyticsPage() {
           {/* Tab 4: Reliability & Evidence */}
           {activeTab === "reliability" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-3">
-                <h3 className="text-base font-semibold text-white">Execution Reliability & Timings</h3>
+              <div className="border border-swiss-border bg-surface p-6 space-y-4">
+                <div className="border-b border-swiss-border pb-2">
+                  <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                    TELEMETRY
+                  </span>
+                  <h3 className="font-sans font-bold text-base text-ink-primary">
+                    Execution Reliability & Timings
+                  </h3>
+                </div>
                 {reliability ? (
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between py-1 border-b border-slate-800/60">
-                      <span className="text-slate-400">Reliability Status</span>
-                      <span className="font-mono text-emerald-400">{reliability.reliability_status}</span>
+                  <div className="space-y-3 text-xs">
+                    <div className="flex justify-between py-2 border-b border-swiss-border-subtle">
+                      <span className="text-ink-muted font-mono uppercase text-[11px]">Reliability Status</span>
+                      <span className="font-mono text-accent font-bold">{reliability.reliability_status}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-slate-800/60">
-                      <span className="text-slate-400">Requests Attempted / Succeeded</span>
-                      <span className="font-mono text-slate-200">{reliability.total_requests_attempted} / {reliability.successful_requests}</span>
+                    <div className="flex justify-between py-2 border-b border-swiss-border-subtle">
+                      <span className="text-ink-muted font-mono uppercase text-[11px]">Requests Attempted / Succeeded</span>
+                      <span className="font-mono text-ink-primary">{reliability.total_requests_attempted} / {reliability.successful_requests}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-slate-800/60">
-                      <span className="text-slate-400">Retries / Timeouts / 429s</span>
-                      <span className="font-mono text-slate-200">{reliability.retried_requests} / {reliability.timed_out_requests} / {reliability.rate_limited_429_count}</span>
+                    <div className="flex justify-between py-2 border-b border-swiss-border-subtle">
+                      <span className="text-ink-muted font-mono uppercase text-[11px]">Retries / Timeouts / 429s</span>
+                      <span className="font-mono text-ink-primary">{reliability.retried_requests} / {reliability.timed_out_requests} / {reliability.rate_limited_429_count}</span>
                     </div>
                     <div className="pt-2">
-                      <span className="text-slate-400 font-semibold block mb-1">Stage Timings (seconds)</span>
-                      {Object.entries(reliability.stage_timings_seconds).map(([st, sec]) => (
-                        <div key={st} className="flex justify-between py-0.5 font-mono text-slate-300">
-                          <span>{st}</span>
-                          <span>{sec}s</span>
-                        </div>
-                      ))}
+                      <span className="font-mono uppercase text-[10px] text-ink-muted tracking-wider block mb-2">Stage Timings (seconds)</span>
+                      <div className="space-y-1">
+                        {Object.entries(reliability.stage_timings_seconds).map(([st, sec]) => (
+                          <div key={st} className="flex justify-between py-1 border-b border-swiss-border-subtle font-mono text-[11px] text-ink-primary">
+                            <span>{st}</span>
+                            <span className="font-bold">{sec}s</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500">Select a completed scan to inspect reliability metrics.</p>
+                  <p className="text-xs font-mono text-ink-muted py-4">Select a completed scan to inspect reliability metrics.</p>
                 )}
               </div>
 
-              <div className="border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-3">
-                <h3 className="text-base font-semibold text-white">Evidence Quality & Chain of Custody</h3>
+              <div className="border border-swiss-border bg-surface p-6 space-y-4">
+                <div className="border-b border-swiss-border pb-2">
+                  <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                    CRYPTOGRAPHIC CUSTODY
+                  </span>
+                  <h3 className="font-sans font-bold text-base text-ink-primary">
+                    Evidence Quality & Chain of Custody
+                  </h3>
+                </div>
                 {evidenceIntel ? (
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between py-1 border-b border-slate-800/60">
-                      <span className="text-slate-400">Total Sealed SHA-256 Records</span>
-                      <span className="font-mono text-emerald-400">{evidenceIntel.sealed_sha256_count} / {evidenceIntel.total_evidence_records}</span>
+                  <div className="space-y-3 text-xs">
+                    <div className="flex justify-between py-2 border-b border-swiss-border-subtle">
+                      <span className="text-ink-muted font-mono uppercase text-[11px]">Total Sealed SHA-256 Records</span>
+                      <span className="font-mono text-accent font-bold">{evidenceIntel.sealed_sha256_count} / {evidenceIntel.total_evidence_records}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-slate-800/60">
-                      <span className="text-slate-400">Redaction Verified Clean</span>
-                      <span className="font-mono text-emerald-400">{evidenceIntel.redacted_secrets_confirmed ? "YES" : "REVIEW"}</span>
+                    <div className="flex justify-between py-2 border-b border-swiss-border-subtle">
+                      <span className="text-ink-muted font-mono uppercase text-[11px]">Redaction Verified Clean</span>
+                      <span className="font-mono text-ink-primary font-bold">{evidenceIntel.redacted_secrets_confirmed ? "YES" : "REVIEW"}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-slate-800/60">
-                      <span className="text-slate-400">Average Confidence Score</span>
-                      <span className="font-mono text-cyan-400">{Math.round(evidenceIntel.average_confidence_score * 100)}%</span>
+                    <div className="flex justify-between py-2 border-b border-swiss-border-subtle">
+                      <span className="text-ink-muted font-mono uppercase text-[11px]">Average Confidence Score</span>
+                      <span className="font-mono text-accent font-bold">{Math.round(evidenceIntel.average_confidence_score * 100)}%</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-slate-800/60">
-                      <span className="text-slate-400">Contradictory Evidence Signals</span>
-                      <span className="font-mono text-amber-400">{evidenceIntel.contradictory_evidence_count}</span>
+                    <div className="flex justify-between py-2 border-b border-swiss-border-subtle">
+                      <span className="text-ink-muted font-mono uppercase text-[11px]">Contradictory Evidence Signals</span>
+                      <span className="font-mono text-ink-primary">{evidenceIntel.contradictory_evidence_count}</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500">Select a completed scan to inspect evidence intelligence.</p>
+                  <p className="text-xs font-mono text-ink-muted py-4">Select a completed scan to inspect evidence intelligence.</p>
                 )}
               </div>
             </div>
@@ -415,14 +502,21 @@ export default function AnalyticsPage() {
 
           {/* Tab 5: Scan Comparison */}
           {activeTab === "compare" && (
-            <div className="border border-slate-800 rounded-xl bg-slate-900/40 p-6 space-y-4">
-              <h3 className="text-base font-semibold text-white">Baseline vs Current Scan Comparison</h3>
+            <div className="border border-swiss-border bg-surface p-6 space-y-6">
+              <div className="border-b border-swiss-border pb-2">
+                <span className="font-mono text-[10px] text-ink-muted uppercase tracking-widest block">
+                  REGRESSION ANALYSIS
+                </span>
+                <h3 className="font-sans font-bold text-base text-ink-primary">
+                  Baseline vs Current Scan Comparison
+                </h3>
+              </div>
               <div className="flex flex-wrap items-center gap-3">
                 <select
                   aria-label="Baseline Scan"
                   value={baselineId}
                   onChange={(e) => setBaselineId(e.target.value)}
-                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono"
+                  className="px-3 py-2 bg-surface-subtle border border-swiss-border text-xs text-ink-primary font-mono focus:outline-none focus:border-accent"
                 >
                   <option value="">Baseline Scan...</option>
                   {scans.map((s) => (
@@ -433,37 +527,38 @@ export default function AnalyticsPage() {
                   aria-label="Current Scan"
                   value={currentId}
                   onChange={(e) => setCurrentId(e.target.value)}
-                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono"
+                  className="px-3 py-2 bg-surface-subtle border border-swiss-border text-xs text-ink-primary font-mono focus:outline-none focus:border-accent"
                 >
                   <option value="">Current Scan...</option>
                   {scans.map((s) => (
                     <option key={s.id} value={s.id}>{s.target_url} ({s.id.slice(0, 8)})</option>
                   ))}
                 </select>
-                <button
+                <Button
                   onClick={handleCompare}
                   disabled={!baselineId || !currentId}
-                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white text-xs font-medium"
+                  variant="primary"
+                  size="sm"
                 >
                   Compare Scans
-                </button>
+                </Button>
               </div>
 
               {comparison && (
-                <div className="p-4 rounded-lg border border-slate-800 bg-slate-950/60 space-y-2 text-xs">
-                  <p className="text-cyan-300 font-medium">{comparison.summary}</p>
-                  <div className="grid grid-cols-3 gap-4 pt-2">
-                    <div>
-                      <span className="text-slate-400 block">New Findings</span>
-                      <span className="text-lg font-bold text-rose-400">{comparison.new_findings_count}</span>
+                <div className="p-4 border border-swiss-border bg-surface-subtle space-y-4">
+                  <p className="font-mono text-xs text-accent font-semibold">{comparison.summary}</p>
+                  <div className="grid grid-cols-3 gap-4 pt-2 border-t border-swiss-border">
+                    <div className="border-r border-swiss-border pr-2">
+                      <span className="font-mono text-[10px] uppercase text-ink-muted tracking-wider block">New Findings</span>
+                      <span className="font-mono text-xl font-bold text-accent">{comparison.new_findings_count}</span>
+                    </div>
+                    <div className="border-r border-swiss-border pr-2">
+                      <span className="font-mono text-[10px] uppercase text-ink-muted tracking-wider block">Resolved Findings</span>
+                      <span className="font-mono text-xl font-bold text-ink-primary">{comparison.resolved_findings_count}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Resolved Findings</span>
-                      <span className="text-lg font-bold text-emerald-400">{comparison.resolved_findings_count}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Persisting Findings</span>
-                      <span className="text-lg font-bold text-amber-400">{comparison.persisting_findings_count}</span>
+                      <span className="font-mono text-[10px] uppercase text-ink-muted tracking-wider block">Persisting Findings</span>
+                      <span className="font-mono text-xl font-bold text-ink-muted">{comparison.persisting_findings_count}</span>
                     </div>
                   </div>
                 </div>

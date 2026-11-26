@@ -65,12 +65,13 @@ class APISecurityAnalyzer(BaseActiveAnalyzer):
                 break
             budget.consume(1)
             try:
-                resp = await client.post(
+                resp, _ = await client.post(
                     gql_url,
                     json={"query": "{__schema{types{name}}}"},
                     headers={"Content-Type": "application/json"},
-                    scan_id=str(scan_id),
                 )
+                if not resp:
+                    continue
                 body = resp.text or ""
                 if resp.status_code == 200 and '"__schema"' in body and '"types"' in body:
                     findings.append(
@@ -105,7 +106,9 @@ class APISecurityAnalyzer(BaseActiveAnalyzer):
                 spec_url = f"{base_origin}{spec_path}"
                 budget.consume(1)
                 try:
-                    resp = await client.get(spec_url, scan_id=str(scan_id))
+                    resp, _ = await client.get(spec_url)
+                    if not resp:
+                        continue
                     body = resp.text or ""
                     if resp.status_code == 200 and ('"openapi"' in body or '"swagger"' in body) and '"paths"' in body:
                         findings.append(
@@ -136,12 +139,11 @@ class APISecurityAnalyzer(BaseActiveAnalyzer):
         if is_root_or_api and target.baseline_body and len(target.baseline_body) > 20 and budget.can_request():
             budget.consume(1)
             try:
-                override_resp = await client.get(
+                override_resp, _ = await client.get(
                     target.url,
                     headers={"X-HTTP-Method-Override": "HEAD"},
-                    scan_id=str(scan_id),
                 )
-                if override_resp.status_code in {200, 204} and len(override_resp.text or "") == 0:
+                if override_resp and override_resp.status_code in {200, 204} and len(override_resp.text or "") == 0:
                     findings.append(
                         ActiveFinding(
                             rule_id="ACT-API-METHOD-OVERRIDE",
@@ -173,13 +175,12 @@ class APISecurityAnalyzer(BaseActiveAnalyzer):
         if is_json_api and target.method.upper() in {"POST", "PUT", "PATCH"} and budget.can_request():
             budget.consume(1)
             try:
-                ct_resp = await client.post(
+                ct_resp, _ = await client.post(
                     target.url,
-                    content='{"ashlynx_ct_probe":1}',
+                    content=b'{"ashlynx_ct_probe":1}',
                     headers={"Content-Type": "text/plain"},
-                    scan_id=str(scan_id),
                 )
-                if ct_resp.status_code in {200, 201}:
+                if ct_resp and ct_resp.status_code in {200, 201}:
                     findings.append(
                         ActiveFinding(
                             rule_id="ACT-API-CONTENT-TYPE-CONFUSION",

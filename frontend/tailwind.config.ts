@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,25 +11,58 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        ashlynx: {
-          50: "#f0f9ff",
-          100: "#e0f2fe",
-          500: "#0284c7",
-          700: "#0369a1",
-          900: "#0c4a6e"
+        canvas: "var(--canvas)",
+        surface: {
+          DEFAULT: "var(--surface)",
+          subtle: "var(--surface-subtle)",
+          elevated: "var(--surface-elevated)",
+        },
+        ink: {
+          primary: "var(--text-primary)",
+          secondary: "var(--text-secondary)",
+          muted: "var(--text-muted)",
+        },
+        swiss: {
+          border: "var(--border-swiss)",
+          "border-subtle": "var(--border-subtle)",
+          "border-strong": "var(--border-strong)",
+        },
+        accent: {
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)",
+          subtle: "var(--accent-subtle)",
         },
         severity: {
-          critical: "#dc2626",
-          high: "#ea580c",
-          medium: "#d97706",
-          low: "#2563eb",
-          info: "#4b5563"
+          critical: "#C62828",
+          high: "#E53935",
+          medium: "#D97706",
+          low: "#2563EB",
+          info: "#64748B",
+          success: "#15803D",
+          active: "#2563EB",
+          disabled: "#A3A3A3",
         }
+      },
+      fontFamily: {
+        display: ["var(--font-space-grotesk)", "Space Grotesk", "Helvetica Neue", "Arial", "sans-serif"],
+        sans: ["var(--font-plus-jakarta)", "Plus Jakarta Sans", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        mono: ["var(--font-ibm-plex-mono)", "IBM Plex Mono", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
+      },
+      borderRadius: {
+        none: "0px",
+        xs: "1px",
+        sm: "2px",
+        DEFAULT: "2px",
+        md: "3px",
+      },
+      boxShadow: {
+        "swiss-sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+        "swiss-md": "0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)",
+        "swiss-focus": "0 0 0 2px var(--canvas), 0 0 0 4px var(--accent)",
       }
     }
   },
   plugins: []
 };
+
 export default config;

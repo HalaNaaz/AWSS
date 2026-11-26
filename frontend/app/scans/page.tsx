@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { fetchApi } from "../../services/api-client";
+import {
+  PanelHeader,
+  StatusBadge,
+  Button,
+} from "../../components/ui/swiss-components";
+import { Crosshair, Plus, RefreshCw, Layers } from "lucide-react";
 
 interface ScanJob {
   id: string;
@@ -41,84 +47,90 @@ export default function ScansPage() {
 
   return (
     <div className="space-y-6">
-      <div className="border border-slate-800 rounded-xl bg-slate-900/60 p-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Scan Execution Registry</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time multi-phase DAST orchestrator jobs, crawl metrics, and live execution status
-          </p>
-        </div>
-        <Link
-          href="/"
-          className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-sm transition-colors"
-        >
-          + New Scan
-        </Link>
-      </div>
+      {/* Editorial Header */}
+      <PanelHeader
+        tag="OPS // REGISTRY"
+        title="Scan Execution Registry"
+        subtitle="Real-time multi-phase DAST orchestrator jobs, crawl metrics, and live execution status"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={loadScans}
+              variant="outline"
+              size="md"
+              title="Refresh Registry"
+            >
+              <RefreshCw size={12} className={`mr-1 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Link
+              href="/"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-mono font-semibold tracking-wider uppercase border border-accent bg-accent text-white hover:bg-accent-hover transition-colors"
+            >
+              + New Scan
+            </Link>
+          </div>
+        }
+      />
 
-      <div className="border border-slate-800 rounded-xl bg-slate-900/40 overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase font-semibold">
-            <tr>
-              <th className="p-3">Status</th>
-              <th className="p-3">Scan Job ID</th>
-              <th className="p-3">Target URL</th>
-              <th className="p-3">Profile</th>
-              <th className="p-3">Duration</th>
-              <th className="p-3">URLs Crawled</th>
-              <th className="p-3">Findings</th>
-              <th className="p-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/60">
-            {scans.map((s) => (
-              <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
-                <td className="p-3">
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-mono font-semibold ${
-                      s.status === "COMPLETED"
-                        ? "bg-emerald-950 text-emerald-400 border border-emerald-800/60"
-                        : s.status === "RUNNING"
-                        ? "bg-cyan-950 text-cyan-400 border border-cyan-800/60 animate-pulse"
-                        : s.status === "CANCELLED"
-                        ? "bg-slate-800 text-slate-400 border border-slate-700"
-                        : "bg-yellow-950 text-yellow-400 border border-yellow-800/60"
-                    }`}
-                  >
-                    {s.status}
-                  </span>
-                </td>
-                <td className="p-3 font-mono text-xs text-slate-400">{s.id.slice(0, 8)}...</td>
-                <td className="p-3 font-mono text-xs text-slate-200">{s.target_url}</td>
-                <td className="p-3 font-mono text-xs text-slate-300">{s.profile}</td>
-                <td className="p-3 font-mono text-xs text-slate-400">{s.duration_seconds || 0}s</td>
-                <td className="p-3 font-mono text-xs text-slate-300">{s.urls_crawled || 0}</td>
-                <td className="p-3 font-mono font-bold text-cyan-400">{s.findings_count || 0}</td>
-                <td className="p-3 text-right space-x-2">
-                  <Link
-                    href={`/attack-surface?scan_id=${s.id}`}
-                    className="px-2.5 py-1 rounded bg-cyan-950 hover:bg-cyan-900 text-xs text-cyan-400 border border-cyan-800/60"
-                  >
-                    Attack Surface
-                  </Link>
-                  <Link
-                    href={`/reports?scan_id=${s.id}`}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700"
-                  >
-                    Report
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {scans.length === 0 && !loading && (
+      {/* Scans Registry Table */}
+      <div className="border border-swiss-border bg-surface overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-swiss-border bg-surface-subtle flex justify-between items-center text-xs font-mono text-ink-muted">
+          <span>ORCHESTRATOR JOBS ({scans.length})</span>
+          <span>POLLING CADENCE: 3000MS</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-surface-subtle border-b border-swiss-border text-[11px] font-mono text-ink-muted uppercase">
               <tr>
-                <td colSpan={8} className="p-8 text-center text-slate-500">
-                  No scan jobs currently registered.
-                </td>
+                <th className="p-3 font-semibold">Status</th>
+                <th className="p-3 font-semibold">Scan Job ID</th>
+                <th className="p-3 font-semibold">Target URL</th>
+                <th className="p-3 font-semibold">Profile</th>
+                <th className="p-3 font-semibold">Duration</th>
+                <th className="p-3 font-semibold">URLs Crawled</th>
+                <th className="p-3 font-semibold">Findings</th>
+                <th className="p-3 font-semibold text-right">Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-swiss-border-subtle font-mono text-xs">
+              {scans.map((s) => (
+                <tr key={s.id} className="hover:bg-surface-subtle/80 transition-colors">
+                  <td className="p-3">
+                    <StatusBadge status={s.status} />
+                  </td>
+                  <td className="p-3 text-ink-muted">{s.id.slice(0, 8)}...</td>
+                  <td className="p-3 font-semibold text-ink-primary">{s.target_url}</td>
+                  <td className="p-3 text-ink-secondary">{s.profile}</td>
+                  <td className="p-3 text-ink-muted tabular-nums">{s.duration_seconds || 0}s</td>
+                  <td className="p-3 text-ink-secondary tabular-nums">{s.urls_crawled || 0}</td>
+                  <td className="p-3 font-bold text-accent tabular-nums">{s.findings_count || 0}</td>
+                  <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                    <Link
+                      href={`/attack-surface?scan_id=${s.id}`}
+                      className="inline-flex items-center px-2 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider border border-swiss-border bg-surface-subtle hover:bg-surface text-ink-primary transition-colors"
+                    >
+                      Surface
+                    </Link>
+                    <Link
+                      href={`/findings?scan_id=${s.id}`}
+                      className="inline-flex items-center px-2 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider border border-swiss-border bg-surface hover:bg-surface-subtle text-ink-primary transition-colors"
+                    >
+                      Findings
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {scans.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-ink-muted font-mono text-xs">
+                    No scan jobs registered. Launch an assessment from the Overview dashboard.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

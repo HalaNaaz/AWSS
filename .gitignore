@@ -80,7 +80,7 @@ Thumbs.db
 dump.rdb
 
 # Scan artifacts and temporary files
-reports/
+/reports/
 evidence_cache/
 scratch/
 tmp/

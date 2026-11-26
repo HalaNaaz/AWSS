@@ -83,8 +83,8 @@ class PathTraversalAnalyzer(BaseActiveAnalyzer):
             control_url = self._build_url_with_param(target.url, param_name, "ashlynx_nonexistent_7a9c3b.txt")
             budget.consume(1)
             try:
-                control_resp = await client.get(control_url, scan_id=str(scan_id))
-                control_body_lower = (control_resp.text or "").lower()
+                control_resp, _ = await client.get(control_url)
+                control_body_lower = (control_resp.text or "").lower() if control_resp else ""
             except Exception:
                 control_body_lower = ""
 
@@ -94,8 +94,10 @@ class PathTraversalAnalyzer(BaseActiveAnalyzer):
                 probe_url = self._build_url_with_param(target.url, param_name, payload)
                 budget.consume(1)
                 try:
-                    resp = await client.get(probe_url, scan_id=str(scan_id))
+                    resp, _ = await client.get(probe_url)
                 except Exception:
+                    continue
+                if not resp:
                     continue
 
                 body_text = resp.text or ""
