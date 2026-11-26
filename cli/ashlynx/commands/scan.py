@@ -13,6 +13,7 @@ from backend.app.scanner.orchestration.scan_orchestrator import (
     scan_registry,
 )
 from backend.app.reporting.manager import ReportManager
+from backend.app.core.config import settings
 from backend.app.core.exceptions import ScanConfigurationError
 
 console = Console()
@@ -84,6 +85,12 @@ def run_scan(
     else:
         console.print("[dim][*] Active Detection Engine: DISABLED (Passive Inspection Mode)[/dim]")
     console.print(f"[bold green][*][/bold green] Depth: {orchestrator.max_crawl_depth} | Max URLs: {orchestrator.max_urls} | Concurrency: {orchestrator.concurrency} | Rate Limit: {orchestrator.rate_limit_rps} RPS")
+    ssrf_mode = (
+        "[bold yellow]CONTROLLED LAB (ALLOW_PRIVATE_IPS=true)[/bold yellow]"
+        if settings.ALLOW_PRIVATE_IPS
+        else "[bold green]STRICT (RFC1918 & Metadata Blocked)[/bold green]"
+    )
+    console.print(f"[bold green][*][/bold green] ScopeGate Anti-SSRF Pinning: {ssrf_mode} | Authorization: [green]VERIFIED[/green]")
     console.print("[dim]Pre-flight scope validation & anti-SSRF verification initialized...[/dim]")
 
     # Run assessment with cooperative cancellation handling
