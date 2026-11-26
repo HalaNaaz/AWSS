@@ -72,7 +72,7 @@ export default function ReportsPage() {
       <PanelHeader
         tag="06 // REPORTS"
         title="Security Assessment Reports"
-        subtitle="Export structured JSON, executive HTML, and Markdown compliance documentation"
+        subtitle="Export structured JSON, executive HTML, Markdown, and SARIF 2.1.0 security documentation"
         actions={
           scans.length > 0 ? (
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -121,6 +121,7 @@ export default function ReportsPage() {
                 <option value="html">HTML Executive Report</option>
                 <option value="json">JSON Structured Data</option>
                 <option value="markdown">Markdown Documentation</option>
+                <option value="sarif">SARIF 2.1.0 (CI Security)</option>
               </select>
 
               <Button
