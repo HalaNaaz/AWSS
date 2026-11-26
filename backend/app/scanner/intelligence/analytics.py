@@ -131,10 +131,19 @@ class SecurityAnalyticsEngine:
 
         b_cov_obj = baseline_cov or getattr(baseline, "security_coverage", None)
         c_cov_obj = current_cov or getattr(current, "security_coverage", None)
-        cov_delta = round((c_cov_obj.overall_dast_coverage_percent if c_cov_obj else 0.0) - (b_cov_obj.overall_dast_coverage_percent if b_cov_obj else 0.0), 1)
+        cov_delta = (
+            0.0
+            if baseline.scan_id == current.scan_id
+            else round(
+                (c_cov_obj.overall_dast_coverage_percent if c_cov_obj else 0.0)
+                - (b_cov_obj.overall_dast_coverage_percent if b_cov_obj else 0.0),
+                1,
+            )
+        )
 
+        prefix = "Self-Comparison" if baseline.scan_id == current.scan_id else "Comparison"
         summary = (
-            f"Comparison ({str(baseline.scan_id)[:8]} -> {str(current.scan_id)[:8]}): "
+            f"{prefix} ({str(baseline.scan_id)[:8]} -> {str(current.scan_id)[:8]}): "
             f"{len(new_fps)} new, {len(resolved_fps)} resolved, {len(persisting_fps)} persisting findings "
             f"(coverage delta: {cov_delta:+.1f}%)."
         )

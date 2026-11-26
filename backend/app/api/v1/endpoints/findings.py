@@ -64,26 +64,27 @@ def filter_findings_collection(
             f for f in results
             if f.intelligence and f.intelligence.validation_state == validation_state
         ]
-    if cwe_id:
+    if cwe_id and cwe_id.strip():
         norm_cwe = cwe_id.strip().upper()
         results = [f for f in results if f.cwe_id.upper() == norm_cwe]
-    if category:
+    if category and category.strip():
         norm_cat = category.strip().upper()
         results = [
             f for f in results
             if f.intelligence and f.intelligence.vulnerability_category.upper() == norm_cat
         ]
-    if asset:
+    if asset and asset.strip():
         asset_q = asset.strip().lower()
         results = [
             f for f in results
             if (f.intelligence and any(asset_q in a.lower() for a in f.intelligence.asset_relationships))
             or (f.endpoint and asset_q in f.endpoint.url.lower())
         ]
-    if correlation_group_id:
+    if correlation_group_id and correlation_group_id.strip():
+        corr_q = correlation_group_id.strip()
         results = [
             f for f in results
-            if f.intelligence and f.intelligence.correlation_group_id == correlation_group_id
+            if f.intelligence and f.intelligence.correlation_group_id == corr_q
         ]
     if contextual_priority:
         results = [
@@ -100,7 +101,7 @@ def filter_findings_collection(
             f for f in results
             if f.intelligence and f.intelligence.remediation_intelligence.remediation_status == remediation_status
         ]
-    if search:
+    if search and search.strip():
         q = search.strip().lower()
         results = [
             f for f in results

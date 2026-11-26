@@ -70,7 +70,7 @@ def get_attack_surface_summary(scan_id: UUID) -> APIResponse[AttackSurfaceSummar
 def get_discovered_endpoints(
     scan_id: UUID,
     category: Optional[EndpointCategory] = None,
-    method: Optional[str] = None,
+    method: Optional[str] = Query(default=None, max_length=16),
     min_confidence: Optional[float] = Query(default=0.0, ge=0.0, le=1.0),
     limit: Optional[int] = Query(default=1000, ge=1, le=5000),
     offset: Optional[int] = Query(default=0, ge=0)
@@ -81,7 +81,7 @@ def get_discovered_endpoints(
 
     if category:
         endpoints = [ep for ep in endpoints if ep.endpoint_category == category]
-    if method:
+    if method and method.strip():
         method_upper = method.upper().strip()
         endpoints = [ep for ep in endpoints if ep.method == method_upper]
     if min_confidence is not None:
@@ -132,7 +132,7 @@ def get_parameter_intelligence(
 def get_api_inventory(
     scan_id: UUID,
     api_type: Optional[APIType] = None,
-    version: Optional[str] = None,
+    version: Optional[str] = Query(default=None, max_length=32),
     limit: Optional[int] = Query(default=1000, ge=1, le=5000),
     offset: Optional[int] = Query(default=0, ge=0)
 ) -> APIResponse[List[APIEndpointSchema]]:
@@ -142,8 +142,9 @@ def get_api_inventory(
 
     if api_type:
         apis = [a for a in apis if a.api_type == api_type]
-    if version:
-        apis = [a for a in apis if a.version == version.lower()]
+    if version and version.strip():
+        norm_ver = version.strip().lower()
+        apis = [a for a in apis if a.version == norm_ver]
 
     if offset:
         apis = apis[offset:]
