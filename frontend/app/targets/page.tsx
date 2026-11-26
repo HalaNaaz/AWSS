@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { fetchApi } from "../../services/api-client";
 import {
   PanelHeader,
   Button,
@@ -38,8 +39,24 @@ export default function TargetsPage() {
   const [url, setUrl] = useState("");
   const [desc, setDesc] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddTarget = (e: React.FormEvent) => {
+  const loadTargets = async () => {
+    try {
+      const res = await fetchApi<Target[]>("/targets/");
+      if (Array.isArray(res) && res.length > 0) {
+        setTargets(res);
+      }
+    } catch {
+      // Retain default view if backend is temporarily unreachable
+    }
+  };
+
+  useEffect(() => {
+    loadTargets();
+  }, []);
+
+  const handleAddTarget = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -52,22 +69,27 @@ export default function TargetsPage() {
       return;
     }
 
-    const newTarget: Target = {
-      id: `tgt-${Date.now()}`,
-      name: name.trim(),
-      base_url: url.trim(),
-      description: desc.trim(),
-      asset_criticality: 3,
-      verified: true,
-      scope_rules: [{ rule_type: "INCLUDE", pattern: `${url.trim()}/*` }],
-      created_at: new Date().toISOString(),
-    };
-
-    setTargets((prev) => [...prev, newTarget]);
-    setShowAddModal(false);
-    setName("");
-    setUrl("");
-    setDesc("");
+    setIsSubmitting(true);
+    try {
+      const created = await fetchApi<Target>("/targets/", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          base_url: url.trim(),
+          description: desc.trim() || undefined,
+          asset_criticality: 3,
+        }),
+      });
+      setTargets((prev) => [...prev, created]);
+      setShowAddModal(false);
+      setName("");
+      setUrl("");
+      setDesc("");
+    } catch (err: any) {
+      setFormError(err?.message || "Failed to register target");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

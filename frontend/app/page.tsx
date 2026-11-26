@@ -99,8 +99,20 @@ export default function OverviewDashboard() {
     }
   };
 
+  const loadTargets = async () => {
+    try {
+      const res = await fetchApi<Target[]>("/targets/");
+      if (Array.isArray(res) && res.length > 0) {
+        setTargets(res);
+      }
+    } catch {
+      // Retain default target inventory if backend is unavailable
+    }
+  };
+
   useEffect(() => {
     loadScans();
+    loadTargets();
     const interval = setInterval(loadScans, 3000);
     return () => clearInterval(interval);
   }, []);
@@ -144,7 +156,7 @@ export default function OverviewDashboard() {
     }
   };
 
-  const handleRegisterTarget = (e: React.FormEvent) => {
+  const handleRegisterTarget = async (e: React.FormEvent) => {
     e.preventDefault();
     setTargetFormError(null);
 
@@ -157,22 +169,24 @@ export default function OverviewDashboard() {
       return;
     }
 
-    const created: Target = {
-      id: `tgt-${Date.now()}`,
-      name: targetName.trim(),
-      base_url: newTargetUrl.trim(),
-      description: targetDesc.trim(),
-      asset_criticality: 3,
-      verified: true,
-      scope_rules: [{ rule_type: "INCLUDE", pattern: `${newTargetUrl.trim()}/*` }],
-      created_at: new Date().toISOString(),
-    };
-
-    setTargets((prev) => [...prev, created]);
-    setShowTargetModal(false);
-    setTargetName("");
-    setNewTargetUrl("");
-    setTargetDesc("");
+    try {
+      const created = await fetchApi<Target>("/targets/", {
+        method: "POST",
+        body: JSON.stringify({
+          name: targetName.trim(),
+          base_url: newTargetUrl.trim(),
+          description: targetDesc.trim() || undefined,
+          asset_criticality: 3,
+        }),
+      });
+      setTargets((prev) => [...prev, created]);
+      setShowTargetModal(false);
+      setTargetName("");
+      setNewTargetUrl("");
+      setTargetDesc("");
+    } catch (err: any) {
+      setTargetFormError(err?.message || "Failed to register target");
+    }
   };
 
   const handleViewFindings = async (scanId: string) => {
