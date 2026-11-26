@@ -100,7 +100,21 @@ async def test_phase6_orchestrator_api_cli_and_markdown_integration():
 
     cmp_resp = client.get(f"/api/v1/analytics/compare?baseline_scan_id={scan_id}&current_scan_id={scan_id}")
     assert cmp_resp.status_code == 200
-    assert cmp_resp.json()["data"]["persisting_findings_count"] == 1
+    cmp_data = cmp_resp.json()["data"]
+    assert cmp_data["persisting_findings_count"] == 1
+    assert cmp_data["new_findings_count"] == 0
+    assert cmp_data["resolved_findings_count"] == 0
+    assert "Self-Comparison" in cmp_data["summary"]
+
+    # Missing baseline / current comparison returns 404
+    missing_id = uuid4()
+    assert client.get(f"/api/v1/analytics/compare?baseline_scan_id={missing_id}&current_scan_id={scan_id}").status_code == 404
+    assert client.get(f"/api/v1/analytics/compare?baseline_scan_id={scan_id}&current_scan_id={missing_id}").status_code == 404
+
+    # Whitespace-only findings query parameters do not erase results
+    ws_findings = client.get("/api/v1/findings/?cwe_id=%20%20&search=%20%20")
+    assert ws_findings.status_code == 200
+    assert len(ws_findings.json()["items"]) == 1
 
     # Markdown Report contains OWASP Coverage
     md = MarkdownReportGenerator().generate(report)

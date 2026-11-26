@@ -78,3 +78,32 @@ def test_discovery_api_not_found():
     unknown_id = uuid4()
     res = client.get(f"/api/v1/discovery/{unknown_id}/summary")
     assert res.status_code == 404
+
+
+def test_discovery_api_rejects_negative_and_oversized_bounds():
+    scan_id = uuid4()
+    target_url = "https://example.com"
+    gate = ScopeGate(target_base_url=target_url, allow_private_ips=True)
+    engine = AttackSurfaceIntelligenceEngine(target_url, gate, scan_id)
+    engine.ingest_crawled_page(
+        url="https://example.com/api/v1/items",
+        status_code=200,
+        content_type="application/json",
+        response_size=512,
+        headers={},
+    )
+    scan_registry.register_discovery_engine(scan_id, engine)
+
+    assert client.get(f"/api/v1/discovery/{scan_id}/endpoints?offset=-1").status_code == 422
+    assert client.get(f"/api/v1/discovery/{scan_id}/endpoints?limit=99999").status_code == 422
+    assert client.get(f"/api/v1/discovery/{scan_id}/endpoints?limit=0").status_code == 422
+    assert client.get(f"/api/v1/discovery/{scan_id}/endpoints?method=" + "X" * 25).status_code == 422
+
+    # Whitespace-trimmed method and blank version filters still behave cleanly
+    ep_res = client.get(f"/api/v1/discovery/{scan_id}/endpoints?method=%20get%20")
+    assert ep_res.status_code == 200
+    assert len(ep_res.json()["data"]) >= 1
+
+    api_res = client.get(f"/api/v1/discovery/{scan_id}/apis?version=%20%20")
+    assert api_res.status_code == 200
+    assert len(api_res.json()["data"]) >= 1
