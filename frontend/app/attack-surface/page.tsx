@@ -207,10 +207,17 @@ export default function AttackSurfaceDashboard() {
       )}
 
       {/* Navigation Tabs Bar */}
-      <div className="border-b border-swiss-border bg-surface flex flex-wrap gap-1 px-2 pt-2 text-xs font-mono">
+      <div
+        role="tablist"
+        aria-label="Attack Surface Views"
+        className="border-b border-swiss-border bg-surface flex flex-wrap gap-1 px-2 pt-2 text-xs font-mono"
+      >
         {tabList.map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            type="button"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-3 py-2 border-b-2 uppercase tracking-wider font-semibold transition-colors ${
               activeTab === tab.id

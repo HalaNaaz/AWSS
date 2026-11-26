@@ -142,7 +142,11 @@ export default function AnalyticsPage() {
       )}
 
       {/* Modular Swiss Navigation Tabs */}
-      <div className="border border-swiss-border bg-surface flex flex-wrap text-xs font-mono uppercase tracking-wider">
+      <div
+        role="tablist"
+        aria-label="Analytics Intelligence Sections"
+        className="border border-swiss-border bg-surface flex flex-wrap text-xs font-mono uppercase tracking-wider"
+      >
         {[
           { id: "overview", label: "Analytics Overview" },
           { id: "planner", label: "Scan Plan & Context" },
@@ -152,6 +156,9 @@ export default function AnalyticsPage() {
         ].map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            type="button"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`py-3 px-4 sm:px-5 border-r border-b md:border-b-0 border-swiss-border transition-colors ${
               activeTab === tab.id
