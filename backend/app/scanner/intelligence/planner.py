@@ -175,6 +175,19 @@ class IntelligentScanPlanner:
                 selected.append("ACT-MISCONFIG-ANALYZER")
                 reasons.append("surface misconfiguration / SSTI / redirect check")
 
+            if "ACT-TRAVERSAL-ANALYZER" in analyzer_ids and has_query_or_body:
+                selected.append("ACT-TRAVERSAL-ANALYZER")
+                reasons.append("file/path parameter candidate for safe two-phase traversal check")
+
+            if "ACT-API-SEC-ANALYZER" in analyzer_ids and (
+                ep.crawl_depth == 0
+                or ep.endpoint_category == EndpointCategory.API
+                or "graphql" in path_lower
+                or "/api/" in path_lower
+            ):
+                selected.append("ACT-API-SEC-ANALYZER")
+                reasons.append("API / GraphQL / root origin security check")
+
             if not selected:
                 skipped.append(SkippedTargetCheckSchema(
                     url=url,

@@ -28,6 +28,8 @@ class MisconfigurationAnalyzer(BaseActiveAnalyzer):
         ("/actuator", "Spring Boot Actuator Root", "A05:2021 - Security Misconfiguration", Severity.MEDIUM, 5.3),
         ("/_profiler", "Symfony Web Profiler", "A05:2021 - Security Misconfiguration", Severity.HIGH, 7.5),
         ("/phpinfo.php", "PHP Information Page (phpinfo)", "A05:2021 - Security Misconfiguration", Severity.MEDIUM, 5.3),
+        ("/metrics", "Prometheus Metrics Endpoint (/metrics)", "A05:2021 - Security Misconfiguration", Severity.LOW, 3.7),
+        ("/server-status", "Apache Server Status (/server-status)", "A05:2021 - Security Misconfiguration", Severity.MEDIUM, 5.3),
     ]
 
     SENSITIVE_FILES = [

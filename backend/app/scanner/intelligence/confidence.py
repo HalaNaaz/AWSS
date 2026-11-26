@@ -25,7 +25,7 @@ class ConfidenceEngine:
         (re.compile(r"\b(502\s+bad\s+gateway|503\s+service\s+unavailable|504\s+gateway\s+timeout)\b", re.IGNORECASE), "Upstream gateway availability error in evidence"),
     ]
 
-    ACTIVE_INJECTION_CATEGORIES = {"SQL_INJECTION", "XSS", "SSTI", "SSRF", "XXE"}
+    ACTIVE_INJECTION_CATEGORIES = {"SQL_INJECTION", "XSS", "SSTI", "SSRF", "XXE", "PATH_TRAVERSAL"}
 
     @classmethod
     def assess(
@@ -51,6 +51,9 @@ class ConfidenceEngine:
             "CORS_MISCONFIGURATION",
             "TRANSPORT_SECURITY",
             "INFORMATION_DISCLOSURE",
+            "CACHE_SECURITY",
+            "TOKEN_SECURITY",
+            "CLIENT_SIDE_SECURITY",
         ):
             m_score, m_status = 0.85, "POSITIVE"
             m_detail = "Direct deterministic header/attribute observation from HTTP transaction."

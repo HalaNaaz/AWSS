@@ -90,6 +90,14 @@ class FindingNormalizer:
         "CWE-352": "CSRF",
         "CWE-16": "MISCONFIGURATION",
         "CWE-532": "INFORMATION_DISCLOSURE",
+        "CWE-22": "PATH_TRAVERSAL",
+        "CWE-347": "TOKEN_SECURITY",
+        "CWE-613": "TOKEN_SECURITY",
+        "CWE-524": "CACHE_SECURITY",
+        "CWE-525": "CACHE_SECURITY",
+        "CWE-650": "API_SECURITY",
+        "CWE-436": "API_SECURITY",
+        "CWE-1022": "CLIENT_SIDE_SECURITY",
     }
 
     DEFAULT_CVSS_BY_SEVERITY: Dict[Severity, float] = {

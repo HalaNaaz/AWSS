@@ -10,6 +10,9 @@ from backend.app.scanner.passive.analyzers.cors import CORSAnalyzer
 from backend.app.scanner.passive.analyzers.disclosure import InformationDisclosureAnalyzer
 from backend.app.scanner.passive.analyzers.https_config import HTTPSConfigAnalyzer
 from backend.app.scanner.passive.analyzers.html_security import HTMLSecurityAnalyzer
+from backend.app.scanner.passive.analyzers.cache_control import CacheControlAnalyzer
+from backend.app.scanner.passive.analyzers.token_security import TokenSecurityAnalyzer
+from backend.app.scanner.passive.analyzers.client_side import ClientSideSecurityAnalyzer
 
 
 class PassiveAnalysisEngine:
@@ -22,7 +25,10 @@ class PassiveAnalysisEngine:
             CORSAnalyzer(),
             InformationDisclosureAnalyzer(),
             HTTPSConfigAnalyzer(),
-            HTMLSecurityAnalyzer()
+            HTMLSecurityAnalyzer(),
+            CacheControlAnalyzer(),
+            TokenSecurityAnalyzer(),
+            ClientSideSecurityAnalyzer(),
         ]
 
     def register_analyzer(self, analyzer: BasePassiveAnalyzer) -> None:

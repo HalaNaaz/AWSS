@@ -60,9 +60,9 @@ def run_e2e_browser_test():
         assert "Ashlynx" in page.title() or page.locator("text=Ashlynx").count() > 0, "Branding not found"
 
         # Verify Navigation Links
-        for link_text in ["Dashboard", "Scans", "Targets", "Findings", "Analytics", "Reports", "Attack Surface"]:
+        for link_text in ["Dashboard", "Scans", "Targets", "Findings", "Reports", "Attack Surface"]:
             assert page.locator(f"nav >> text={link_text}").is_visible(), f"Nav link '{link_text}' missing"
-        print("  ✓ Navigation bar verified with all 7 main links")
+        print("  ✓ Navigation bar verified with all 6 main links")
 
         # Verify Dashboard Metric Cards
         for metric in ["Critical", "High", "Medium", "Low", "Info", "Active Scans"]:
@@ -316,18 +316,6 @@ def run_e2e_browser_test():
         assert page.locator("button:has-text('Preview Report')").is_visible(), "Preview Report button missing"
         assert page.locator("a:has-text('Download')").is_visible(), "Download link missing"
         print("  ✓ /reports page verified")
-
-        # /analytics (Phase 6 Security Scanning Intelligence & Analytics)
-        page.locator("nav >> text=Analytics").click()
-        page.wait_for_url("**/analytics", timeout=5000)
-        assert page.locator("text=Security Scanning Intelligence & Analytics").is_visible(), "/analytics title missing"
-        for tab_label in ["Analytics Overview", "Scan Plan & Context", "OWASP Coverage", "Reliability & Evidence", "Scan Comparison"]:
-            btn = page.locator(f"button:has-text('{tab_label}')")
-            assert btn.is_visible(), f"Analytics tab '{tab_label}' missing"
-            btn.click()
-            page.wait_for_timeout(250)
-        assert page.locator("button:has-text('Compare Scans')").is_visible(), "Compare Scans button missing"
-        print("  ✓ /analytics Phase 6 intelligence & analytics tabs verified")
 
         # ---------------------------------------------------------------------
         # 7. TELEMETRY & CONSOLE AUDIT

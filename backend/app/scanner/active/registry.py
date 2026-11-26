@@ -7,6 +7,8 @@ from backend.app.scanner.active.analyzers import (
     SSRFAnalyzer,
     XXEAnalyzer,
     AuthenticationAnalyzer,
+    PathTraversalAnalyzer,
+    APISecurityAnalyzer,
 )
 from shared.schemas.common import ScanProfile
 
@@ -23,6 +25,8 @@ class ActivePluginRegistry:
             SSRFAnalyzer(),
             XXEAnalyzer(),
             AuthenticationAnalyzer(),
+            PathTraversalAnalyzer(),
+            APISecurityAnalyzer(),
         ]
         for a in defaults:
             self.register(a)

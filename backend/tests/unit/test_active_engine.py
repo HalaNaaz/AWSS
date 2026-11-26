@@ -66,7 +66,7 @@ def test_request_budget_tracker():
 def test_active_plugin_registry():
     registry = ActivePluginRegistry()
     analyzers = registry.list_analyzers()
-    assert len(analyzers) == 6
+    assert len(analyzers) == 8
 
     rule_ids = registry.list_all_rules()
     assert "ACT-SQLI-ERROR" in rule_ids
@@ -75,6 +75,8 @@ def test_active_plugin_registry():
     assert "ACT-SSRF-URL-PARAM" in rule_ids
     assert "ACT-XXE-ENTITY-EXPANSION" in rule_ids
     assert "ACT-AUTH-SESSION-URL" in rule_ids
+    assert "ACT-TRAVERSAL-LFI" in rule_ids
+    assert "ACT-API-GRAPHQL-INTROSPECTION" in rule_ids
 
     # Profile filtering
     passive_analyzers = registry.get_analyzers_for_profile(ScanProfile.PASSIVE_DISCOVERY)
@@ -84,7 +86,7 @@ def test_active_plugin_registry():
     assert len(safe_analyzers) >= 5
 
     standard_analyzers = registry.get_analyzers_for_profile(ScanProfile.STANDARD_ACTIVE)
-    assert len(standard_analyzers) == 6
+    assert len(standard_analyzers) == 8
 
 
 @pytest.mark.asyncio

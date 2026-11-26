@@ -20,13 +20,13 @@ class SecurityCoverageEngine:
     """
 
     OWASP_2021_CATALOG: List[Tuple[str, str, Set[str], str]] = [
-        ("A01:2021", "Broken Access Control", {"CORS_MISCONFIGURATION", "OPEN_REDIRECT", "CSRF"}, "Passive CORS/CSRF & active redirect/auth boundary checks"),
-        ("A02:2021", "Cryptographic Failures", {"TRANSPORT_SECURITY", "COOKIE_SECURITY"}, "HTTPS transport, HSTS, mixed content, and cookie Secure flag inspection"),
-        ("A03:2021", "Injection", {"SQL_INJECTION", "XSS", "SSTI"}, "Bounded non-destructive SQLi boolean differential, XSS canary, and SSTI math probes"),
+        ("A01:2021", "Broken Access Control", {"CORS_MISCONFIGURATION", "OPEN_REDIRECT", "CSRF", "PATH_TRAVERSAL", "API_SECURITY"}, "Passive CORS/CSRF/postMessage & active traversal/redirect/API boundary checks"),
+        ("A02:2021", "Cryptographic Failures", {"TRANSPORT_SECURITY", "COOKIE_SECURITY", "CLIENT_SIDE_SECURITY"}, "HTTPS transport, HSTS, mixed content, and cookie Secure flag inspection"),
+        ("A03:2021", "Injection", {"SQL_INJECTION", "XSS", "SSTI", "CLIENT_SIDE_SECURITY"}, "Bounded non-destructive SQLi boolean differential, XSS canary, DOM sink, and SSTI math probes"),
         ("A04:2021", "Insecure Design", {"SECURITY_HEADERS"}, "Clickjacking framing & security design header inspection (requires design review for full coverage)"),
-        ("A05:2021", "Security Misconfiguration", {"SECURITY_HEADERS", "INFORMATION_DISCLOSURE", "MISCONFIGURATION", "XXE"}, "HTTP headers, server banners, stack traces, and bounded XXE entity check"),
+        ("A05:2021", "Security Misconfiguration", {"SECURITY_HEADERS", "INFORMATION_DISCLOSURE", "MISCONFIGURATION", "XXE", "CACHE_SECURITY", "API_SECURITY"}, "HTTP headers, cache-control, server banners, stack traces, API schema/introspection, and bounded XXE check"),
         ("A06:2021", "Vulnerable and Outdated Components", set(), "Passive technology fingerprinting only; full CVE/SCA inventory requires manifest scanning"),
-        ("A07:2021", "Identification and Authentication Failures", {"AUTHENTICATION_SESSION", "COOKIE_SECURITY"}, "Session cookie flags, CSRF login checks, and auth endpoint inspection"),
+        ("A07:2021", "Identification and Authentication Failures", {"AUTHENTICATION_SESSION", "COOKIE_SECURITY", "TOKEN_SECURITY"}, "Session cookie flags, JWT hygiene, CSRF login checks, and auth endpoint inspection"),
         ("A08:2021", "Software and Data Integrity Failures", {"HTML_SECURITY"}, "Subresource Integrity (SRI) passive check; CI/CD artifact signing out of DAST scope"),
         ("A09:2021", "Security Logging and Monitoring Failures", set(), "Not observable via external black-box DAST requests"),
         ("A10:2021", "Server-Side Request Forgery (SSRF)", {"SSRF"}, "Bounded safe SSRF candidate & redirect/URL parameter checks"),
@@ -130,6 +130,10 @@ class SecurityCoverageEngine:
             elif owasp_id in ("A01:2021", "A02:2021", "A04:2021", "A05:2021", "A07:2021"):
                 if passive_executed:
                     executed.append("passive_http_analysis")
+                if owasp_id == "A01:2021" and "ACT-TRAVERSAL-ANALYZER" in active_set:
+                    executed.append("ACT-TRAVERSAL-ANALYZER")
+                if owasp_id in ("A01:2021", "A05:2021") and "ACT-API-SEC-ANALYZER" in active_set:
+                    executed.append("ACT-API-SEC-ANALYZER")
                 if owasp_id == "A05:2021" and "ACT-MISCONFIG-ANALYZER" in active_set:
                     executed.append("ACT-MISCONFIG-ANALYZER")
                 if owasp_id == "A05:2021" and "ACT-XXE-ANALYZER" in active_set:

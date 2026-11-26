@@ -6,6 +6,8 @@ from backend.app.scanner.active.analyzers.misconfiguration import Misconfigurati
 from backend.app.scanner.active.analyzers.ssrf import SSRFAnalyzer
 from backend.app.scanner.active.analyzers.xxe import XXEAnalyzer
 from backend.app.scanner.active.analyzers.authentication import AuthenticationAnalyzer
+from backend.app.scanner.active.analyzers.traversal import PathTraversalAnalyzer
+from backend.app.scanner.active.analyzers.api_security import APISecurityAnalyzer
 
 __all__ = [
     "SQLInjectionAnalyzer",
@@ -14,4 +16,6 @@ __all__ = [
     "SSRFAnalyzer",
     "XXEAnalyzer",
     "AuthenticationAnalyzer",
+    "PathTraversalAnalyzer",
+    "APISecurityAnalyzer",
 ]

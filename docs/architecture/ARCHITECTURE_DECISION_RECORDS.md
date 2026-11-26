@@ -56,3 +56,11 @@
 * **Context:** CVSS measures intrinsic technical vulnerability characteristics, whereas remediation urgency depends on attack surface context (authentication exposure, parameter type, related findings, technology stack, and configured asset criticality).
 * **Decision:** `ContextualRiskEngine` calculates an explainable contextual priority (`CRITICAL`..`INFO`, `0–100`) alongside—never overwriting—`cvss_score` and `severity`. Missing contextual inputs such as unconfigured asset criticality are explicitly declared in `data_limitations` rather than fabricated.
 * **Consequences:** Preserves standards compliance for CVSS reporting while enabling context-driven prioritization.
+
+---
+
+### ADR-008: Phase 7 Modular Assessment Expansion & Signal Quality Dampening
+* **Status:** Approved
+* **Context:** Phases 1–6 established passive headers/cookies/CORS/disclosure/HTML checks and active SQLi/XSS/SSRF/XXE/Misconfig/Auth analyzers, leaving targeted gaps in response caching, JWT/token hygiene, client-side DOM/tabnabbing/postMessage security, two-phase path traversal verification, and API security checks.
+* **Decision:** Add focused, single-purpose passive analyzers (`SEC-CACHE-ANALYZER`, `AUTH-TOKEN-ANALYZER`, `CLIENT-SEC-ANALYZER`) and bounded non-destructive active analyzers (`ACT-TRAVERSAL-ANALYZER`, `ACT-API-SEC-ANALYZER`) registered in `PassiveAnalysisEngine` and `ActivePluginRegistry`. Strengthen `ConfidenceEngine` signal-quality dampening for low-probe unverified anomalies rather than creating a parallel finding schema.
+* **Consequences:** Preserves non-bypassable `ScopeGate` socket pinning, two-phase deterministic verification, and AVIVE compatibility while expanding OWASP Top 10 coverage and reducing unverified noise.

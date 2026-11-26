@@ -15,7 +15,7 @@ def test_list_active_analyzers():
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
-    assert len(data["data"]) == 6
+    assert len(data["data"]) == 8
     analyzer_ids = [a["analyzer_id"] for a in data["data"]]
     assert "ACT-SQLI-ANALYZER" in analyzer_ids
     assert "ACT-XSS-ANALYZER" in analyzer_ids
@@ -23,6 +23,8 @@ def test_list_active_analyzers():
     assert "ACT-SSRF-ANALYZER" in analyzer_ids
     assert "ACT-XXE-ANALYZER" in analyzer_ids
     assert "ACT-AUTH-ANALYZER" in analyzer_ids
+    assert "ACT-TRAVERSAL-ANALYZER" in analyzer_ids
+    assert "ACT-API-SEC-ANALYZER" in analyzer_ids
 
 
 def test_list_active_rules():
