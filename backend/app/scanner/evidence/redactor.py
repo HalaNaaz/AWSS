@@ -12,12 +12,14 @@ class EvidenceRedactor:
     REDACTION_PATTERNS = [
         # Authorization header
         (re.compile(r'(Authorization:\s*(?:Bearer|Basic)\s+)[^\r\n]+', re.IGNORECASE), r'\1[REDACTED]'),
+        # Sensitive query string parameters (?token=, &api_key=, &access_token=, etc.)
+        (re.compile(r'([?&](?:access_token|refresh_token|id_token|api_key|apikey|token|secret|password|auth)=)[^&\s\r\n]+', re.IGNORECASE), r'\1[REDACTED]'),
         # Session and auth cookies in headers (Cookie and Set-Cookie)
-        (re.compile(r'((?:session|token|auth|jwt|sid|id)[^=;\r\n]*=)[^;\r\n]+', re.IGNORECASE), r'\1[REDACTED]'),
+        (re.compile(r'(\b(?:session|token|auth|jwt|sid|id)[A-Za-z0-9_.-]*=)[^;\r\n&\s]+', re.IGNORECASE), r'\1[REDACTED]'),
         # JSON fields: password, secret, token, api_key
         (re.compile(r'("(?:password|secret|token|api_key|access_token|refresh_token)"\s*:\s*")[^"]+(")', re.IGNORECASE), r'\1[REDACTED]\2'),
         # Key-Value assignments in config/.env files
-        (re.compile(r'((?:SECRET|KEY|PASSWORD|TOKEN|PASS|PWD|AUTH|CREDENTIAL)[^\r\n=]*=\s*)[^\r\n]+', re.IGNORECASE), r'\1[REDACTED]'),
+        (re.compile(r'(^\s*[A-Za-z0-9_.-]*(?:SECRET|KEY|PASSWORD|TOKEN|PASS|PWD|AUTH|CREDENTIAL)[A-Za-z0-9_.-]*\s*=\s*)[^\r\n]+', re.IGNORECASE | re.MULTILINE), r'\1[REDACTED]'),
         # Private Keys
         (re.compile(r'-----BEGIN [A-Z ]+PRIVATE KEY-----[^-]+-----END [A-Z ]+PRIVATE KEY-----', re.DOTALL), '[REDACTED_PRIVATE_KEY]'),
         # Credit Card Numbers (16 digits with dashes or spaces)

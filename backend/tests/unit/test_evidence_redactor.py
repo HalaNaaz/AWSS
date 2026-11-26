@@ -34,3 +34,14 @@ def test_evidence_sha256_seal_integrity():
     # Modified request yields different hash
     seal3 = EvidenceRedactor.generate_sha256_seal(req + "Extra", resp)
     assert seal1 != seal3
+
+
+def test_evidence_redaction_query_parameters():
+    raw_url = "GET /oauth/callback?code=ok&access_token=ya29.supersecret&api_key=ak_live_98765&user=alice HTTP/1.1"
+    redacted = EvidenceRedactor.redact(raw_url)
+    assert "ya29.supersecret" not in redacted
+    assert "ak_live_98765" not in redacted
+    assert "access_token=[REDACTED]" in redacted
+    assert "api_key=[REDACTED]" in redacted
+    assert "user=alice" in redacted
+    assert "code=ok" in redacted
