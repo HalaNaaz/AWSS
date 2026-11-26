@@ -1,4 +1,4 @@
-# ASHLYNX WEBSEC SCANNER — PHASE 2A IMPLEMENTATION & VERIFICATION REPORT
+﻿# ASHLYNX WEBSEC SCANNER — PHASE 2A IMPLEMENTATION & VERIFICATION REPORT
 ## Reconnaissance & Bounded HTTP Crawler Engine
 
 **Product:** Ashlynx WebSec Scanner (`AWSS-CORE`)  
@@ -97,7 +97,7 @@ Full test suite executed with `pytest`:
 ```
 ============================= test session starts =============================
 platform win32 -- Python 3.14.6, pytest-9.1.1, pluggy-1.6.0
-rootdir: C:\Users\Hala\Downloads\Project Files\Ashlynx WebSec Scanner\backend
+rootdir: <PROJECT_ROOT>\backend
 configfile: pytest.ini
 plugins: anyio-4.14.2, asyncio-1.4.0, cov-7.1.0
 collected 35 items

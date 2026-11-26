@@ -1,4 +1,4 @@
-# ASHLYNX WEBSEC SCANNER
+﻿# ASHLYNX WEBSEC SCANNER
 # PHASE 2B INDEPENDENT SECURITY & QUALITY AUDIT REPORT
 
 **Audit Date:** 2026-11-24  
@@ -52,36 +52,36 @@ Seven specific edge cases and false-positive risks were identified and immediate
 ### Defect 1: False Positive on Missing `<meta charset>`
 - **Observation:** `HTMLSecurityAnalyzer` flagged `PASSIVE-HTML-MISSING-CHARSET` on documents that already declared character encoding via the HTTP response header `Content-Type: text/html; charset=utf-8`.
 - **Standard Precedence:** According to RFC 7231 and WHATWG HTML specifications, the HTTP header `Content-Type` charset parameter has higher precedence than in-document `<meta charset>`.
-- **Remediation:** Updated [html_security.py](file:///c:/Users/Hala/Downloads/Project%20Files/Ashlynx%20WebSec%20Scanner/backend/app/scanner/passive/analyzers/html_security.py) to check `Content-Type` header first. If `charset=` is present, `PASSIVE-HTML-MISSING-CHARSET` is suppressed.
+- **Remediation:** Updated [html_security.py](backend/app/scanner/passive/analyzers/html_security.py) to check `Content-Type` header first. If `charset=` is present, `PASSIVE-HTML-MISSING-CHARSET` is suppressed.
 - **Verification:** Added `test_charset_in_content_type_header_suppresses_meta_charset` (PASSED).
 
 ### Defect 2: False Positive on Deleted / Expired Cookies
 - **Observation:** When an application intentionally deletes a cookie by setting `Max-Age=0` or `Expires=Thu, 01 Jan 1970 00:00:00 GMT` (or empty value), `CookieSecurityAnalyzer` previously evaluated it as an active session cookie and flagged missing `Secure` or `HttpOnly` attributes.
-- **Remediation:** Added cookie deletion detection in [cookies.py](file:///c:/Users/Hala/Downloads/Project%20Files/Ashlynx%20WebSec%20Scanner/backend/app/scanner/passive/analyzers/cookies.py). Expired/cleared cookies are ignored by security attribute audits.
+- **Remediation:** Added cookie deletion detection in [cookies.py](backend/app/scanner/passive/analyzers/cookies.py). Expired/cleared cookies are ignored by security attribute audits.
 - **Verification:** Added `test_cookie_deletion_directive_suppressed` (PASSED).
 
 ### Defect 3: Inaccurate IPv4 Octet Validation & Large Body Resource Limits
 - **Observation:** `InformationDisclosureAnalyzer` used `\d{1,3}` for octets, which matched invalid IP addresses (e.g. `10.999.888.777`) and had no size boundary on response body scanning.
-- **Remediation:** Refined `INTERNAL_IP_PATTERN` in [disclosure.py](file:///c:/Users/Hala/Downloads/Project%20Files/Ashlynx%20WebSec%20Scanner/backend/app/scanner/passive/analyzers/disclosure.py) to validate octet ranges `0-255` (`(?:25[0-5]|2[0-4]\d|[01]?\d\d?)`) and enforced a 1 MB body scanning cap to prevent CPU exhaustion.
+- **Remediation:** Refined `INTERNAL_IP_PATTERN` in [disclosure.py](backend/app/scanner/passive/analyzers/disclosure.py) to validate octet ranges `0-255` (`(?:25[0-5]|2[0-4]\d|[01]?\d\d?)`) and enforced a 1 MB body scanning cap to prevent CPU exhaustion.
 - **Verification:** Added `test_invalid_ip_octets_not_flagged` (PASSED).
 
 ### Defect 4: Unhandled HSTS `preload` Directive Check
 - **Observation:** `PASSIVE-HDR-HSTS-NO-PRELOAD` was declared in `supported_rules` in `SecurityHeaderAnalyzer`, but the check was omitted from `analyze()`.
-- **Remediation:** Implemented `preload` validation in [headers.py](file:///c:/Users/Hala/Downloads/Project%20Files/Ashlynx%20WebSec%20Scanner/backend/app/scanner/passive/analyzers/headers.py) when `max-age` and `includeSubDomains` are satisfied.
+- **Remediation:** Implemented `preload` validation in [headers.py](backend/app/scanner/passive/analyzers/headers.py) when `max-age` and `includeSubDomains` are satisfied.
 - **Verification:** Added `test_hsts_preload_directive_check` (PASSED).
 
 ### Defect 5: Missing Detection of Dynamically Reflected Origin in CORS
 - **Observation:** `CORSAnalyzer` checked wildcard and null origins with credentials, but did not detect dynamic origin reflection when an arbitrary `Origin` header was echoed back in `Access-Control-Allow-Origin` alongside `Access-Control-Allow-Credentials: true`.
-- **Remediation:** Added `PASSIVE-CORS-REFLECTED-ORIGIN-WITH-CREDENTIALS` (CWE-942, Severity: HIGH, CVSS: 8.5) in [cors.py](file:///c:/Users/Hala/Downloads/Project%20Files/Ashlynx%20WebSec%20Scanner/backend/app/scanner/passive/analyzers/cors.py).
+- **Remediation:** Added `PASSIVE-CORS-REFLECTED-ORIGIN-WITH-CREDENTIALS` (CWE-942, Severity: HIGH, CVSS: 8.5) in [cors.py](backend/app/scanner/passive/analyzers/cors.py).
 - **Verification:** Added `test_cors_reflected_origin_with_credentials` (PASSED).
 
 ### Defect 6: Untrusted Payload Body Cap on API Endpoint
 - **Observation:** `POST /api/v1/passive/analyze` had no maximum length constraint on the `body` field in `PassiveAnalyzeRequest`.
-- **Remediation:** Added `Field(None, max_length=5_000_000)` (5 MB safety limit) in [passive.py](file:///c:/Users/Hala/Downloads/Project%20Files/Ashlynx%20WebSec%20Scanner/backend/app/api/v1/endpoints/passive.py).
+- **Remediation:** Added `Field(None, max_length=5_000_000)` (5 MB safety limit) in [passive.py](backend/app/api/v1/endpoints/passive.py).
 
 ### Defect 7: Anti-CSRF Token Button & External Domain Filtering
 - **Observation:** Form CSRF analysis in `HTMLSecurityAnalyzer` didn't inspect `<button name="...">` and flagged external third-party search/login forms.
-- **Remediation:** In [html_security.py](file:///c:/Users/Hala/Downloads/Project%20Files/Ashlynx%20WebSec%20Scanner/backend/app/scanner/passive/analyzers/html_security.py), added `<button>` checking and filtered out third-party provider actions (e.g., Google, Bing, PayPal).
+- **Remediation:** In [html_security.py](backend/app/scanner/passive/analyzers/html_security.py), added `<button>` checking and filtered out third-party provider actions (e.g., Google, Bing, PayPal).
 - **Verification:** Added `test_csrf_external_form_action_not_flagged` (PASSED).
 
 ---

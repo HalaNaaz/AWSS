@@ -1,4 +1,4 @@
-# ASHLYNX WEBSEC SCANNER — PHASE 1 FINAL TECHNICAL AUDIT REPORT
+﻿# ASHLYNX WEBSEC SCANNER — PHASE 1 FINAL TECHNICAL AUDIT REPORT
 
 **Product:** Ashlynx WebSec Scanner (`AWSS-CORE`)  
 **Parent Specification:** Master PRD v2.0 Final (`PRD-WSS-2026-V2.0-FINAL`)  
@@ -138,7 +138,7 @@ All 10 canonical entities from PRD Section 22 are mapped in `backend/app/models/
 ```
 ============================= test session starts =============================
 platform win32 -- Python 3.14.6, pytest-9.1.1, pluggy-1.6.0
-rootdir: C:\Users\Hala\Downloads\Project Files\Ashlynx WebSec Scanner\backend
+rootdir: <PROJECT_ROOT>\backend
 configfile: pytest.ini
 plugins: anyio-4.14.2, asyncio-1.4.0, cov-7.1.0
 collected 14 items
