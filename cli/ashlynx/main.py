@@ -5,6 +5,7 @@ from cli.ashlynx.commands.recon import run_recon
 from cli.ashlynx.commands.attack_surface import run_attack_surface
 from cli.ashlynx.commands.findings import findings_app
 from cli.ashlynx.commands.analytics import analytics_app
+from cli.ashlynx.commands.targets import targets_app
 from cli.ashlynx.output.formatter import TerminalFormatter
 
 app = typer.Typer(
@@ -20,6 +21,7 @@ app.command("surface", hidden=True)(run_attack_surface)
 app.add_typer(report_app, name="report")
 app.add_typer(findings_app, name="findings")
 app.add_typer(analytics_app, name="analytics")
+app.add_typer(targets_app, name="targets")
 
 
 @app.command("version")
