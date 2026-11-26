@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, ConfigDict, HttpUrl, Field
 from shared.schemas.common import ScopeRuleType
 
 
@@ -20,8 +20,7 @@ class ScopeRuleResponse(ScopeRuleBase):
     target_id: UUID
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TargetBase(BaseModel):
@@ -44,5 +43,4 @@ class TargetResponse(TargetBase):
     updated_at: Optional[datetime] = None
     scope_rules: List[ScopeRuleResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

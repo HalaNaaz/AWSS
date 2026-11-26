@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from urllib.parse import urlparse
 from uuid import UUID
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from shared.schemas.common import ScanProfile, ScanStatus
 
 
@@ -123,5 +123,4 @@ class ScanJobResponse(ScanJobBase):
     error_message: Optional[str] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
