@@ -39,6 +39,15 @@ export default function ScansPage() {
     }
   };
 
+  const handleCancelScan = async (scanId: string) => {
+    try {
+      await fetchApi(`/scans/${scanId}/cancel`, { method: "POST" });
+      await loadScans();
+    } catch {
+      // Error surfaced cleanly via refresh/registry state
+    }
+  };
+
   useEffect(() => {
     loadScans();
     const interval = setInterval(loadScans, 3000);
@@ -106,6 +115,15 @@ export default function ScansPage() {
                   <td className="p-3 text-ink-secondary tabular-nums">{s.urls_crawled || 0}</td>
                   <td className="p-3 font-bold text-accent tabular-nums">{s.findings_count || 0}</td>
                   <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                    {(s.status === "RUNNING" || s.status === "QUEUED") && (
+                      <Button
+                        onClick={() => handleCancelScan(s.id)}
+                        variant="destructive"
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                    )}
                     <Link
                       href={`/attack-surface?scan_id=${s.id}`}
                       className="inline-flex items-center px-2 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider border border-swiss-border bg-surface-subtle hover:bg-surface text-ink-primary transition-colors"

@@ -370,7 +370,7 @@ export default function OverviewDashboard() {
                           >
                             Surface
                           </Link>
-                          {s.status === "RUNNING" && (
+                          {(s.status === "RUNNING" || s.status === "QUEUED") && (
                             <Button
                               onClick={() => handleCancelScan(s.id)}
                               variant="destructive"
